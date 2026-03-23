@@ -1,3 +1,6 @@
 AGENTS.md
 README.md
 .next
+storybook-static
+playwright-report
+test-results

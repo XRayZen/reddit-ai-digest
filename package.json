@@ -7,6 +7,10 @@
     "lint:web": "corepack pnpm --filter @reddit-ai-digest/web lint",
     "typecheck:web": "corepack pnpm --filter @reddit-ai-digest/web typecheck",
     "test:web": "corepack pnpm --filter @reddit-ai-digest/web test",
+    "storybook:web": "corepack pnpm --filter @reddit-ai-digest/web storybook",
+    "build-storybook:web": "corepack pnpm --filter @reddit-ai-digest/web build-storybook",
+    "test:storybook:web": "corepack pnpm --filter @reddit-ai-digest/web test:storybook",
+    "test:golden:web": "corepack pnpm --filter @reddit-ai-digest/web test:golden",
     "format:web": "corepack pnpm --filter @reddit-ai-digest/web format"
   }
 }
