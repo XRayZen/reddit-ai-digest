@@ -13,7 +13,7 @@ export function ArticleList({ articles }: { articles: ArticleCardItem[] }) {
   }
 
   return (
-    <div className="article-list">
+    <div className="grid gap-5 xl:grid-cols-2">
       {articles.map((article) => (
         <ArticleCard key={article.id} article={article} />
       ))}

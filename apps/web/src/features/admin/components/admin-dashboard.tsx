@@ -3,6 +3,17 @@
 import { useTransition } from "react";
 
 import { EmptyState } from "@/components/empty-state";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   finishAdminAction,
@@ -10,15 +21,28 @@ import {
 } from "@/store/slices/ui-preferences-slice";
 import type { AdminJob } from "@/types/content";
 
+function getJobStatusVariant(status: AdminJob["status"]) {
+  switch (status) {
+    case "completed":
+      return "secondary";
+    case "failed":
+      return "destructive";
+    default:
+      return "outline";
+  }
+}
+
 function JobRow({ job }: { job: AdminJob }) {
   return (
-    <tr>
-      <td>{job.id}</td>
-      <td>{job.type}</td>
-      <td>{job.targetLabel}</td>
-      <td>{job.status}</td>
-      <td>{job.requestedAt}</td>
-    </tr>
+    <TableRow>
+      <TableCell>{job.id}</TableCell>
+      <TableCell>{job.type}</TableCell>
+      <TableCell className="whitespace-normal">{job.targetLabel}</TableCell>
+      <TableCell>
+        <Badge variant={getJobStatusVariant(job.status)}>{job.status}</Badge>
+      </TableCell>
+      <TableCell>{job.requestedAt}</TableCell>
+    </TableRow>
   );
 }
 
@@ -42,69 +66,93 @@ export function AdminDashboard({ jobs }: { jobs: AdminJob[] }) {
   }
 
   return (
-    <div className="stack-xl">
-      <section className="hero-card">
+    <div className="grid gap-6">
+      <section className="rounded-[calc(var(--radius)+10px)] border border-border bg-card px-7 py-7 shadow-[var(--shadow)] backdrop-blur-xl">
         <p className="eyebrow">Admin Console</p>
-        <h1>収集と再要約の操作</h1>
-        <p className="hero-copy">
+        <h1 className="font-display mt-3 text-[clamp(2.8rem,7vw,4.75rem)] leading-none">
+          収集と再要約の操作
+        </h1>
+        <p className="mt-4 max-w-3xl text-sm leading-8 text-muted-foreground md:text-base">
           この段階では API
           はすべてモックです。操作の手触りと導線だけを先に固めます。
         </p>
       </section>
 
-      <section className="panel action-panel">
-        <div>
-          <p className="eyebrow">Actions</p>
-          <h2>管理操作</h2>
-        </div>
-        <div className="action-buttons">
-          <button
-            type="button"
-            onClick={() => runMockAction("収集")}
-            disabled={adminActionPending || isTransitionPending}
+      <Card>
+        <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-2">
+            <p className="eyebrow">Actions</p>
+            <CardTitle className="font-display text-3xl leading-none">
+              管理操作
+            </CardTitle>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              size="lg"
+              onClick={() => runMockAction("収集")}
+              disabled={adminActionPending || isTransitionPending}
+            >
+              収集実行
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={() => runMockAction("再要約")}
+              disabled={adminActionPending || isTransitionPending}
+            >
+              再要約実行
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <Badge
+            variant={
+              adminActionPending || isTransitionPending
+                ? "secondary"
+                : "outline"
+            }
+            className="rounded-full px-4 py-2 text-xs uppercase tracking-[0.14em]"
           >
-            収集実行
-          </button>
-          <button
-            type="button"
-            onClick={() => runMockAction("再要約")}
-            disabled={adminActionPending || isTransitionPending}
-          >
-            再要約実行
-          </button>
-        </div>
-        <p className="status-text">{adminMessage}</p>
-      </section>
+            {adminMessage}
+          </Badge>
+        </CardContent>
+      </Card>
 
-      <section className="panel">
-        <p className="eyebrow">Job History</p>
-        <h2>ジョブ一覧</h2>
-        {jobs.length === 0 ? (
-          <EmptyState
-            title="ジョブはまだありません"
-            description="モック API の履歴を追加すると、管理導線の確認がしやすくなります。"
-          />
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>種別</th>
-                  <th>対象</th>
-                  <th>状態</th>
-                  <th>実行時刻</th>
-                </tr>
-              </thead>
-              <tbody>
+      <Card>
+        <CardHeader className="gap-3">
+          <p className="eyebrow">Job History</p>
+          <CardTitle className="font-display text-3xl leading-none">
+            ジョブ一覧
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {jobs.length === 0 ? (
+            <EmptyState
+              title="ジョブはまだありません"
+              description="モック API の履歴を追加すると、管理導線の確認がしやすくなります。"
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>種別</TableHead>
+                  <TableHead>対象</TableHead>
+                  <TableHead>状態</TableHead>
+                  <TableHead>実行時刻</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {jobs.map((job) => (
                   <JobRow key={job.id} job={job} />
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

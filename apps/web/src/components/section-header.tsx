@@ -8,10 +8,16 @@ export function SectionHeader({
   description: string;
 }) {
   return (
-    <div className="section-header">
+    <div className="mb-5 max-w-3xl space-y-3">
       <p className="eyebrow">{eyebrow}</p>
-      <h2>{title}</h2>
-      <p className="section-copy">{description}</p>
+      <div className="space-y-2">
+        <h2 className="font-display text-3xl leading-none tracking-tight md:text-4xl">
+          {title}
+        </h2>
+        <p className="text-sm leading-7 text-muted-foreground md:text-base">
+          {description}
+        </p>
+      </div>
     </div>
   );
 }

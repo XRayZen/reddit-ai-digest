@@ -1,3 +1,7 @@
+import { TriangleAlertIcon } from "lucide-react";
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 export function ErrorMessage({
   title,
   description,
@@ -6,9 +10,13 @@ export function ErrorMessage({
   description: string;
 }) {
   return (
-    <div className="error-message" role="alert">
-      <h3>{title}</h3>
-      <p>{description}</p>
-    </div>
+    <Alert
+      variant="destructive"
+      className="rounded-[calc(var(--radius)+6px)] shadow-[var(--shadow)] backdrop-blur-xl"
+    >
+      <TriangleAlertIcon />
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription>{description}</AlertDescription>
+    </Alert>
   );
 }

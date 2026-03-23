@@ -47,23 +47,28 @@ export function ThemeDetailClient({ theme }: { theme: ThemeDetail }) {
   const sortedArticles = sortArticles(filteredArticles, sortOrder);
 
   return (
-    <div className="stack-xl">
-      <section className="hero-card">
+    <div className="grid gap-6">
+      <section className="rounded-[calc(var(--radius)+10px)] border border-border bg-card px-7 py-7 shadow-[var(--shadow)] backdrop-blur-xl">
         <p className="eyebrow">Theme Overview</p>
-        <h1>{theme.name}</h1>
-        <p className="hero-copy">{theme.description}</p>
+        <h1 className="font-display mt-3 text-[clamp(2.8rem,7vw,5rem)] leading-none">
+          {theme.name}
+        </h1>
+        <p className="mt-4 max-w-3xl text-sm leading-8 text-muted-foreground md:text-base">
+          {theme.description}
+        </p>
       </section>
 
-      <section className="panel">
-        <div className="toolbar">
-          <div>
+      <section className="rounded-[calc(var(--radius)+10px)] border border-border bg-card px-7 py-7 shadow-[var(--shadow)] backdrop-blur-xl">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="space-y-2">
             <p className="eyebrow">List Controls</p>
-            <h2>記事一覧</h2>
+            <h2 className="font-display text-3xl leading-none">記事一覧</h2>
           </div>
-          <label className="select-field">
+          <label className="grid gap-2 text-sm text-muted-foreground">
             <span>並び替え</span>
             <select
               aria-label="記事の並び替え"
+              className="min-w-40 rounded-lg border border-input bg-popover px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/20"
               value={sortOrder}
               onChange={(event) =>
                 dispatch(
@@ -77,10 +82,11 @@ export function ThemeDetailClient({ theme }: { theme: ThemeDetail }) {
               <option value="points">論点数順</option>
             </select>
           </label>
-          <label className="select-field">
+          <label className="grid gap-2 text-sm text-muted-foreground">
             <span>フィルタ</span>
             <select
               aria-label="記事のフィルタ"
+              className="min-w-40 rounded-lg border border-input bg-popover px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/20"
               value={filterLabel}
               onChange={(event) =>
                 dispatch(setThemeFilterLabel(event.currentTarget.value))
@@ -94,7 +100,9 @@ export function ThemeDetailClient({ theme }: { theme: ThemeDetail }) {
             </select>
           </label>
         </div>
-        <ArticleList articles={sortedArticles} />
+        <div className="mt-6">
+          <ArticleList articles={sortedArticles} />
+        </div>
       </section>
     </div>
   );
