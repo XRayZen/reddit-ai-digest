@@ -1,31 +1,57 @@
 import { http, HttpResponse } from "msw";
 
-import {
-  getArticleFixture,
-  getThemeFixture,
-  listAdminJobs,
-  listThemes,
-} from "@/mocks/fixtures/content-fixtures";
+import { ApiNotFoundError } from "@/lib/api/errors";
+import { mockContentApi } from "@/lib/api/mock-content-api";
 
-export const handlers = [
-  http.get("/api/themes", () => HttpResponse.json(listThemes())),
-  http.get("/api/themes/:slug", ({ params }) => {
-    const theme = getThemeFixture(String(params.slug));
+export async function themesResponse() {
+  const themes = await mockContentApi.getThemes();
 
-    if (!theme) {
-      return HttpResponse.json({ message: "Not found" }, { status: 404 });
-    }
+  return HttpResponse.json(themes);
+}
+
+export async function themeDetailResponse(slug: string) {
+  try {
+    const theme = await mockContentApi.getThemeDetail(slug);
 
     return HttpResponse.json(theme);
-  }),
-  http.get("/api/articles/:id", ({ params }) => {
-    const article = getArticleFixture(String(params.id));
-
-    if (!article) {
-      return HttpResponse.json({ message: "Not found" }, { status: 404 });
+  } catch (error) {
+    if (error instanceof ApiNotFoundError) {
+      return HttpResponse.json({ message: error.message }, { status: 404 });
     }
 
+    throw error;
+  }
+}
+
+export async function articleDetailResponse(id: string) {
+  try {
+    const article = await mockContentApi.getArticleDetail(id);
+
     return HttpResponse.json(article);
-  }),
-  http.get("/api/admin/jobs", () => HttpResponse.json(listAdminJobs())),
+  } catch (error) {
+    if (error instanceof ApiNotFoundError) {
+      return HttpResponse.json({ message: error.message }, { status: 404 });
+    }
+
+    throw error;
+  }
+}
+
+export async function adminJobsResponse() {
+  const jobs = await mockContentApi.getAdminJobs();
+
+  return HttpResponse.json(jobs);
+}
+
+// MSW もアプリ本体と同じ mock adapter を使い、
+// fixture 参照を複数レイヤへ散らさないようにする。
+export const handlers = [
+  http.get("/api/themes", () => themesResponse()),
+  http.get("/api/themes/:slug", ({ params }) =>
+    themeDetailResponse(String(params.slug)),
+  ),
+  http.get("/api/articles/:id", ({ params }) =>
+    articleDetailResponse(String(params.id)),
+  ),
+  http.get("/api/admin/jobs", () => adminJobsResponse()),
 ];
