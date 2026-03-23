@@ -1,22 +1,10 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans_JP, Space_Grotesk } from "next/font/google";
 
 import { Header } from "@/components/header";
+import { appFontClassName } from "@/lib/fonts";
 import { StoreProvider } from "@/store/provider";
 
 import "./globals.css";
-
-const bodyFont = IBM_Plex_Sans_JP({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  variable: "--font-body",
-});
-
-const displayFont = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["500", "700"],
-  variable: "--font-display",
-});
 
 export const metadata: Metadata = {
   title: "Reddit AI Digest",
@@ -31,7 +19,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className={`${bodyFont.variable} ${displayFont.variable}`}>
+      <body
+        className={`${appFontClassName} min-h-screen bg-background text-foreground antialiased`}
+      >
         <StoreProvider>
           <main className="page-shell">
             <Header />

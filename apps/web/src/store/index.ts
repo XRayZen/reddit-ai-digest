@@ -1,12 +1,28 @@
 import { configureStore } from "@reduxjs/toolkit";
 
-import { uiPreferencesReducer } from "@/store/slices/ui-preferences-slice";
+import {
+  initialUiPreferencesState,
+  uiPreferencesReducer,
+  type UiPreferencesState,
+} from "@/store/slices/ui-preferences-slice";
 
-export const makeStore = () =>
+export type AppPreloadedState = {
+  uiPreferences?: Partial<UiPreferencesState>;
+};
+
+export const makeStore = (preloadedState?: AppPreloadedState) =>
   configureStore({
     reducer: {
       uiPreferences: uiPreferencesReducer,
     },
+    preloadedState: preloadedState
+      ? {
+          uiPreferences: {
+            ...initialUiPreferencesState,
+            ...preloadedState.uiPreferences,
+          },
+        }
+      : undefined,
   });
 
 export type AppStore = ReturnType<typeof makeStore>;

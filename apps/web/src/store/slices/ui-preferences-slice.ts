@@ -1,15 +1,15 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-type ThemeSortOrder = "newest" | "points";
+export type ThemeSortOrder = "newest" | "points";
 
-type UiPreferencesState = {
+export type UiPreferencesState = {
   themeSortOrder: ThemeSortOrder;
   themeFilterLabel: string;
   adminActionPending: boolean;
   adminMessage: string;
 };
 
-const initialState: UiPreferencesState = {
+export const initialUiPreferencesState: UiPreferencesState = {
   themeSortOrder: "newest",
   themeFilterLabel: "all",
   adminActionPending: false,
@@ -18,7 +18,7 @@ const initialState: UiPreferencesState = {
 
 const uiPreferencesSlice = createSlice({
   name: "uiPreferences",
-  initialState,
+  initialState: initialUiPreferencesState,
   reducers: {
     setThemeSortOrder(state, action: PayloadAction<ThemeSortOrder>) {
       state.themeSortOrder = action.payload;
