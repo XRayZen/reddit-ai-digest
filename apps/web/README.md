@@ -17,7 +17,7 @@ Next.js フロントエンドです。
 - `../../docs/development/coding-rules-common.md`
 - `../../docs/development/coding-rules-frontend.md`
 - `../../docs/development/code-review-checklist.md`
-- `../../docs/plans/frontend-first-mock-api-plan.md`
+- `../../docs/plans/`
 
 ---
 
@@ -56,8 +56,30 @@ Next.js フロントエンドです。
 - `src/app/themes/[slug]/page.tsx`
 - `src/app/articles/[id]/page.tsx`
 - `src/app/admin/page.tsx`
-- `src/lib/api-client.ts`
+- `src/lib/api/client.ts`
 - `src/store/`
+
+---
+
+## セットアップ
+最小構成のフロントエンドは `apps/web` 単体で起動できる。
+
+```bash
+corepack pnpm install
+corepack pnpm --filter @reddit-ai-digest/web dev
+```
+
+確認用コマンド:
+
+```bash
+corepack pnpm --filter @reddit-ai-digest/web lint
+corepack pnpm --filter @reddit-ai-digest/web typecheck
+corepack pnpm --filter @reddit-ai-digest/web test
+```
+
+補足:
+- 画面データは `src/mocks/fixtures/` の固定 JSON 相当データを使う
+- MSW のハンドラは `src/mocks/handlers.ts` に置き、実 API 差し替え境界を保つ
 
 ---
 
@@ -65,7 +87,7 @@ Next.js フロントエンドです。
 - MVP 範囲は `../../docs/product/mvp-scope.md`
 - API 方針は `../../docs/architecture/api.md`
 - 全体像は `../../docs/architecture/overview.md`
-- フロントエンド先行プランは `../../docs/plans/frontend-first-mock-api-plan.md`
+- 実装プランは `../../docs/plans/`
 
 ---
 

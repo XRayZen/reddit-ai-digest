@@ -9,7 +9,7 @@ Next.js / React / Redux Toolkit / TypeScript の実装ルールを定義する�
 - `docs/architecture/overview.md`
 - `docs/architecture/api.md`
 - `docs/development/coding-rules-common.md`
-- `docs/plans/frontend-first-mock-api-plan.md`
+- `docs/plans/`
 
 ---
 

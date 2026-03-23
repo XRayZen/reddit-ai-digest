@@ -194,8 +194,7 @@
 - `docs/development/code-review-checklist.md`
 
 ### 実装プラン
-- `docs/plans/frontend-first-mock-api-plan.md`
-  - フロントエンド先行 / API 全モックの初期実装プラン
+- `docs/plans/`
 
 ### 意思決定ログ
 - `docs/adr/architecture-decisions.md`
@@ -222,7 +221,7 @@
 ### フロントエンドを触るとき
 1. `docs/development/coding-rules-common.md`
 2. `docs/development/coding-rules-frontend.md`
-3. `docs/plans/frontend-first-mock-api-plan.md`
+3. `docs/plans/`
 4. `docs/development/code-review-checklist.md`
 
 ### バックエンドを触るとき
@@ -255,7 +254,7 @@
 API 通信をモックで置き換えて UI を先に進めてもよいです。
 
 補足:
-- API 全モックの初期実装プランは `docs/plans/frontend-first-mock-api-plan.md` を参照する
+- API 全モックの初期実装プランは `docs/plans/` を参照する
 - モック方式は `apps/web` 側で閉じ、本番依存コードへ漏らさない
 
 基本的な流れ:

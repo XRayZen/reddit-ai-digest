@@ -8,13 +8,10 @@ API はすべてモックで置き換えた状態で
 
 関連ドキュメント:
 - `AGENTS.md`
-- `README.md`
-- `docs/product/mvp-scope.md`
-- `docs/architecture/overview.md`
-- `docs/architecture/api.md`
-- `docs/development/coding-rules-frontend.md`
-- `apps/web/AGENTS.md`
-- `apps/web/README.md`
+- `docs/product/`
+- `docs/architecture/`
+- `docs/development/`
+- `apps/web/`
 
 ---
 

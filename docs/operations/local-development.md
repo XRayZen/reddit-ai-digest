@@ -117,7 +117,6 @@ make test
 運用メモ:
 - 変更が proto や prompt に及ぶ場合は専用 Skill を先に確認する
 - 1 回の変更で複数レイヤに波及する場合は、UI より契約変更の確認を先に行う
-- フロントエンド先行で進める場合は `docs/plans/frontend-first-mock-api-plan.md` を参照する
 
 ---
 
