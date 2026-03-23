@@ -1,1 +1,1 @@
-apps/worker/AGENTS.md
+AGENTS.md

@@ -1,1 +1,1 @@
-apps/api/AGENTS.md
+AGENTS.md
