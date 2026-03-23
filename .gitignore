@@ -75,9 +75,6 @@ coverage/
 *.coverprofile
 *.out
 
-# AI / Claude
-.claude/
-.ai/
 
 # Build artifacts
 /secrets/
@@ -88,3 +85,6 @@ coverage/
 apps/web/public/mockServiceWorker.js
 apps/web/artifacts/*
 !apps/web/artifacts/.gitkeep
+apps/web/storybook-static/
+apps/web/playwright-report/
+apps/web/test-results/
