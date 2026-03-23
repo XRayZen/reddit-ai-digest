@@ -77,9 +77,21 @@ corepack pnpm --filter @reddit-ai-digest/web typecheck
 corepack pnpm --filter @reddit-ai-digest/web test
 ```
 
+Browser Use CLI の確認:
+
+```bash
+corepack pnpm --filter @reddit-ai-digest/web dev
+./apps/web/scripts/browser-use-local.sh --session webcheck open http://127.0.0.1:3000
+sleep 2
+./apps/web/scripts/browser-use-local.sh --session webcheck screenshot apps/web/artifacts/home.png
+```
+
 補足:
 - 画面データは `src/mocks/fixtures/` の固定 JSON 相当データを使う
 - MSW のハンドラは `src/mocks/handlers.ts` に置き、実 API 差し替え境界を保つ
+- Browser Use のシナリオは `test-scenarios/browser-use-cli.md` を参照する
+- screenshot 保存先は `artifacts/` とし、画像本体は Git 管理しない
+- root ベースのローカル環境では Chromium sandbox が原因で Browser Use CLI が停止するため、ラッパースクリプトで `IN_DOCKER=true` を付与している
 
 ---
 

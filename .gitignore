@@ -2,6 +2,7 @@
 node_modules/
 .pnp
 .pnp.js
+.pnpm-store
 
 # Next.js
 .next/
@@ -9,6 +10,7 @@ out/
 build/
 dist/
 .swc/
+*.tsbuildinfo
 
 # Production
 *.tgz
@@ -81,3 +83,8 @@ coverage/
 /secrets/
 *.key
 *.pem
+
+# Mock worker
+apps/web/public/mockServiceWorker.js
+apps/web/artifacts/*
+!apps/web/artifacts/.gitkeep

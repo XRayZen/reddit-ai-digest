@@ -1,0 +1,12 @@
+{
+  "name": "reddit-ai-digest",
+  "private": true,
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "dev:web": "corepack pnpm --filter @reddit-ai-digest/web dev",
+    "lint:web": "corepack pnpm --filter @reddit-ai-digest/web lint",
+    "typecheck:web": "corepack pnpm --filter @reddit-ai-digest/web typecheck",
+    "test:web": "corepack pnpm --filter @reddit-ai-digest/web test",
+    "format:web": "corepack pnpm --filter @reddit-ai-digest/web format"
+  }
+}
