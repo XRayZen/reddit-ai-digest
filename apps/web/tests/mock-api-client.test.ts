@@ -4,9 +4,24 @@ import {
   getThemeDetail,
   getThemes,
 } from "@/lib/api/client";
+import { ApiNotFoundError } from "@/lib/api/errors";
 import { formatDate } from "@/lib/format";
 
 describe("mock api client", () => {
+  const originalMode = process.env.CONTENT_API_MODE;
+
+  beforeEach(() => {
+    process.env.CONTENT_API_MODE = "mock";
+  });
+
+  afterEach(() => {
+    if (originalMode === undefined) {
+      delete process.env.CONTENT_API_MODE;
+    } else {
+      process.env.CONTENT_API_MODE = originalMode;
+    }
+  });
+
   it("returns all themes for the home screen", async () => {
     const themes = await getThemes();
 
@@ -54,6 +69,15 @@ describe("mock api client", () => {
     await expect(
       Promise.all(articleIds.map((id) => getArticleDetail(id))),
     ).resolves.toHaveLength(articleIds.length);
+  });
+
+  it("returns not found errors for missing resources", async () => {
+    await expect(getThemeDetail("missing")).rejects.toBeInstanceOf(
+      ApiNotFoundError,
+    );
+    await expect(getArticleDetail("missing")).rejects.toBeInstanceOf(
+      ApiNotFoundError,
+    );
   });
 
   it("formats dates in a stable Tokyo timezone", () => {
