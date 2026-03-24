@@ -18,6 +18,7 @@ function getBaseUrl(): string {
   const baseUrl = process.env.CONTENT_API_BASE_URL;
 
   if (!baseUrl) {
+    // live 指定なのに接続先が未設定な状態は、fetch 前に明示的に失敗させる。
     throw new Error(
       "CONTENT_API_BASE_URL is required when CONTENT_API_MODE=live.",
     );
@@ -77,6 +78,7 @@ export const liveContentApi: ContentApi = {
   },
 
   getThemeDetail(slug) {
+    // slug/id の URL エンコードを adapter 側へ寄せ、page 側の分岐を減らす。
     return fetchJson<ThemeDetail>(`/api/themes/${encodeURIComponent(slug)}`);
   },
 

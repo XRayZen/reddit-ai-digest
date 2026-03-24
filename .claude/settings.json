@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "mcp__web-reader__webReader",
+      "Bash(git diff:*)",
+      "Bash(git add:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh run:*)",
+      "mcp__web-search-prime__web_search_prime"
+    ]
+  }
+}

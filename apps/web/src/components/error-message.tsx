@@ -13,7 +13,7 @@ export function ErrorMessage({
     // error / not-found の両方で使えるよう、見た目だけを共通化して文言は呼び出し元で決める。
     <Alert
       variant="destructive"
-      className="rounded-[calc(var(--radius)+6px)] shadow-[var(--shadow)] backdrop-blur-xl"
+      className="rounded-[calc(var(--radius)+8px)] bg-card/95 shadow-[var(--shadow)] backdrop-blur-2xl"
     >
       <TriangleAlertIcon />
       <AlertTitle>{title}</AlertTitle>

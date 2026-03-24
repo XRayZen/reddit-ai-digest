@@ -11,6 +11,7 @@
     "build-storybook:web": "corepack pnpm --filter @reddit-ai-digest/web build-storybook",
     "test:storybook:web": "corepack pnpm --filter @reddit-ai-digest/web test:storybook",
     "test:golden:web": "corepack pnpm --filter @reddit-ai-digest/web test:golden",
+    "test:e2e:web": "corepack pnpm --filter @reddit-ai-digest/web test:e2e",
     "format:web": "corepack pnpm --filter @reddit-ai-digest/web format"
   }
 }

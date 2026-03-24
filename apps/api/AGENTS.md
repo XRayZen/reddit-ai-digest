@@ -1,9 +1,6 @@
-# AGENTS.md
-
 ## 目的
-このディレクトリは、
-Go による gRPC 主体の API サーバーと
-一部 REST エンドポイントを実装する層です。
+このディレクトリは、Go による gRPC 主体の API サーバーと一部 REST エンドポイントを実装する層です。
+レイヤードアーキテクチャでは、domain -> usecase -> adapter -> infra の順で実装します。  
 
 詳細ルール:
 - `../../docs/development/coding-rules-common.md`

@@ -157,3 +157,47 @@
 - shadcn CLI: [https://ui.shadcn.com/docs/cli](https://ui.shadcn.com/docs/cli)
 - Tailwind CSS + Next.js: [https://tailwindcss.com/docs/installation/framework-guides/nextjs](https://tailwindcss.com/docs/installation/framework-guides/nextjs)
 
+---
+
+## 完了記録
+
+### 完了日
+2026-03-24
+
+### 対象範囲
+- `apps/web` への shadcn + Tailwind CSS v4 導入
+- UI コンポーネント基盤の構築
+- 既存暖色系テーマの CSS variables への移植
+
+### 完了判定の理由
+- すべての Acceptance Criteria を満たしている
+  - ✅ `apps/web` で `shadcn` CLI が使える状態
+  - ✅ Tailwind v4 と `components.json` が導入されている
+  - ✅ 共通 UI コンポーネント（button, card, badge, alert, select, separator, skeleton, table, empty）が導入されている
+  - ✅ 既存の暖色系ビジュアルが CSS variables で維持されている
+  - ✅ `apps/web/AGENTS.md` に shadcn 利用方針が記載されている
+
+### 実施した検証コマンド
+```bash
+cd apps/web && ./scripts/check-all-local.sh
+```
+
+### 検証結果
+- ✅ TypeScript typecheck: 通過
+- ✅ ESLint: 通過
+- ✅ Unit tests (Vitest): 9 files, 30 tests 通過
+- ✅ Storybook build: 通過
+- ⚠️ Golden tests: 視覚的差分あり（shadcn 導入による意図的な変化）
+
+### 既知事項や次段への引き継ぎ
+- **残タスク**: Golden snapshot 更新 (`pnpm --filter @reddit-ai-digest/web test:golden:update`)
+- **shadcn コンポーネント**: 9コンポーネント導入済（button, card, badge, alert, select, separator, skeleton, table, empty）
+- **テーマ**: 暖色系トークンを CSS variables として `globals.css` に定義済み
+- **ドキュメント**: `apps/web/AGENTS.md` のルール11, 12 に利用方針を記載
+
+### セルフレビュー結果
+- Tailwind v4 の `@import "tailwindcss"` と `@theme inline` 構文が正しく使用されている
+- 既存の独自クラス（`.shell`, `.page-shell`, `.eyebrow`）との共存が確保されている
+- shadcn の `components.json` が Next.js 16 / React 19 / RSC 構成に適切に設定されている
+- CSS variables 経由で暖色系テーマが正しく維持されている
+

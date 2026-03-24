@@ -12,6 +12,7 @@ export type AppPreloadedState = {
 
 export const makeStore = (preloadedState?: AppPreloadedState) =>
   // story / test ごとの差分指定をしやすいよう、初期 state と部分上書きをここで合成する。
+  // サーバーデータは置かず、画面横断の UI 状態だけを単一 slice にまとめる。
   configureStore({
     reducer: {
       uiPreferences: uiPreferencesReducer,

@@ -8,13 +8,14 @@
 1. 実装前に必ず短い作業計画を提示し、OK を得てから着手する。
 2. 可能な限りテストファーストで進める。
 3. 実装後は必ずセルフコードレビューを行う。
-4. アーキテクチャ変更時は `docs/architecture/overview.md` を先に読む。
-5. MVP 範囲の確認は `docs/product/mvp-scope.md` を参照する。
-6. ローカル開発手順は `docs/operations/local-development.md` を参照する。
-7. Reddit 収集まわりは `.ai/skills/reddit-ingestion-debug/SKILL.md` を参照する。
-8. プロンプトや要約品質は `.ai/skills/prompt-regression-check/SKILL.md` を参照する。
-9. デプロイや運用は `.ai/skills/ecs-deploy-check/SKILL.md` を参照する。
-10. 本番ログ調査は `.ai/skills/cloudwatch-log-search/SKILL.md` を参照する。
+4. コードには必ず意図を説明するコメントをつける。
+5. アーキテクチャ変更時は `docs/architecture/overview.md` を先に読む。
+6. MVP 範囲の確認は `docs/product/mvp-scope.md` を参照する。
+7. ローカル開発手順は `docs/operations/local-development.md` を参照する。
+8. Reddit 収集まわりは `.ai/skills/reddit-ingestion-debug/SKILL.md` を参照する。
+9. プロンプトや要約品質は `.ai/skills/prompt-regression-check/SKILL.md` を参照する。
+10. デプロイや運用は `.ai/skills/ecs-deploy-check/SKILL.md` を参照する。
+11. 本番ログ調査は `.ai/skills/cloudwatch-log-search/SKILL.md` を参照する。
 
 ## ディレクトリ別ルール
 - `apps/web` 配下では `apps/web/AGENTS.md` を優先して参照する。

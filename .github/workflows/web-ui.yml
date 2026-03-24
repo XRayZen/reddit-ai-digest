@@ -1,0 +1,133 @@
+name: web-ui
+
+on:
+  pull_request:
+    paths:
+      # Web UI の実行結果に影響する入力だけを対象にして、無関係な PR での実行を避ける。
+      - "apps/web/**"
+      - "docs/operations/local-development.md"
+      - "docs/plans/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/web-ui.yml"
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "apps/web/**"
+      - "docs/operations/local-development.md"
+      - "docs/plans/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/web-ui.yml"
+
+jobs:
+  web-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      # Playwright 公式イメージを使い、browser のダウンロード待ちと OS 依存差分を減らす。
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+      options: --user 1001 --ipc=host
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      # setup-node の pnpm cache を有効化して、依存解決の待ち時間を減らす。
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      # lockfile と CI 上の pnpm バージョンを固定し、ローカルとの差分混入を防ぐ。
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          # E2E の production build を高速化するため、Next.js の filesystem cache を共有する。
+          path: apps/web/.next/cache
+          key: ${{ runner.os }}-nextjs-web-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/**/*.ts', 'apps/web/**/*.tsx', 'apps/web/**/*.js', 'apps/web/**/*.jsx', 'apps/web/**/*.mjs', 'apps/web/**/*.css', 'apps/web/**/*.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-web-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      - name: Lint
+        id: lint
+        # 途中失敗でも後続の可視化系チェックと summary 作成まで進め、PR 上の情報量を落とさない。
+        continue-on-error: true
+        run: corepack pnpm lint:web
+
+      - name: Typecheck
+        id: typecheck
+        # 型エラーだけで job を即終了させず、他の UI 品質チェック結果も同時に返せるようにする。
+        continue-on-error: true
+        run: corepack pnpm typecheck:web
+
+      - name: Unit tests
+        id: unit_tests
+        # 単体テスト失敗時も visual / e2e の結果を残し、修正範囲の見積もりをしやすくする。
+        continue-on-error: true
+        run: corepack pnpm test:web
+
+      - name: Build Storybook
+        id: build_storybook
+        # build の可否を summary に載せたいので、ここでは即終了させず outcome を後段で集約する。
+        continue-on-error: true
+        run: corepack pnpm --filter @reddit-ai-digest/web build-storybook
+
+      - name: Storybook golden tests
+        id: golden_tests
+        # visual regression の成否も他チェックと横並びで見たいので continue-on-error を使う。
+        continue-on-error: true
+        # 直前の build 成果物をそのまま使い、Storybook の二重起動と再 build を避ける。
+        run: corepack pnpm --filter @reddit-ai-digest/web test:golden:prebuilt
+
+      - name: Playwright E2E tests
+        id: e2e_tests
+        # 導線回帰の失敗時も summary と artifact 回収を確実に行うため、最後まで job を進める。
+        continue-on-error: true
+        run: corepack pnpm test:e2e:web
+
+      - name: Write job summary
+        if: always()
+        env:
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          UNIT_TESTS_OUTCOME: ${{ steps.unit_tests.outcome }}
+          BUILD_STORYBOOK_OUTCOME: ${{ steps.build_storybook.outcome }}
+          GOLDEN_TESTS_OUTCOME: ${{ steps.golden_tests.outcome }}
+          E2E_TESTS_OUTCOME: ${{ steps.e2e_tests.outcome }}
+        # 各 step の outcome を 1 か所へ集約し、PR の summary から失敗箇所を即判断できるようにする。
+        run: bash .github/scripts/write-web-ui-summary.sh
+
+      - name: Upload visual artifacts
+        # テスト失敗時のスクリーンショットや HTML report を必ず回収して原因調査をしやすくする。
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-ui-artifacts
+          # PNG 中心で再圧縮の旨味が小さいため、upload 時間を優先する。
+          compression-level: 0
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+
+      - name: Fail job if checks failed
+        # summary 出力と artifact 回収を終えたあとで、job 全体の成否だけを元の期待どおり failure に戻す。
+        if: ${{ always() && (steps.lint.outcome == 'failure' || steps.typecheck.outcome == 'failure' || steps.unit_tests.outcome == 'failure' || steps.build_storybook.outcome == 'failure' || steps.golden_tests.outcome == 'failure' || steps.e2e_tests.outcome == 'failure') }}
+        run: |
+          echo "One or more web-ui checks failed."
+          exit 1
