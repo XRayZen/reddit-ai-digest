@@ -8,9 +8,9 @@ export function SectionHeader({
   description: string;
 }) {
   return (
-    <div className="mb-5 max-w-3xl space-y-3">
+    <div className="mb-5 flex max-w-3xl flex-col gap-3">
       <p className="eyebrow">{eyebrow}</p>
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2">
         <h2 className="font-display text-3xl leading-none tracking-tight md:text-4xl">
           {title}
         </h2>
@@ -18,6 +18,7 @@ export function SectionHeader({
           {description}
         </p>
       </div>
+      <div className="surface-rule" />
     </div>
   );
 }

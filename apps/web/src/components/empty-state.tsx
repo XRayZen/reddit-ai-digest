@@ -17,9 +17,9 @@ export function EmptyState({
 }) {
   return (
     // 文言差し替えだけで空状態を量産できるよう、装飾とレイアウトを共通化する。
-    <Empty className="rounded-[calc(var(--radius)+6px)] border border-dashed border-border bg-card px-6 py-10 shadow-[var(--shadow)] backdrop-blur-xl">
+    <Empty className="rounded-[calc(var(--radius)+8px)] border border-dashed border-border bg-card/90 px-6 py-12 shadow-[var(--shadow)] backdrop-blur-2xl">
       <EmptyHeader>
-        <EmptyMedia variant="icon">
+        <EmptyMedia variant="icon" className="surface-inline rounded-2xl">
           <InboxIcon />
         </EmptyMedia>
         <EmptyTitle>{title}</EmptyTitle>
