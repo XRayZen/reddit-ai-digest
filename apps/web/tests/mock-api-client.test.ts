@@ -11,6 +11,7 @@ describe("mock api client", () => {
   const originalMode = process.env.CONTENT_API_MODE;
 
   beforeEach(() => {
+    // mock 固定にして、fixture 由来の画面データだけを検証する。
     process.env.CONTENT_API_MODE = "mock";
   });
 
@@ -57,6 +58,7 @@ describe("mock api client", () => {
   });
 
   it("returns article detail for every article exposed on theme pages", async () => {
+    // 一覧に出した ID が詳細取得で落ちないことを見て、fixture 間の参照切れを防ぐ。
     const themes = await getThemes();
     const details = await Promise.all(
       themes.map((theme) => getThemeDetail(theme.slug)),

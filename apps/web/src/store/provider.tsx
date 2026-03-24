@@ -12,6 +12,7 @@ export function StoreProvider({
   children: React.ReactNode;
   preloadedState?: AppPreloadedState;
 }) {
+  // client component 再描画で store を作り直さないよう、最初の 1 回だけ初期化する。
   const [store] = useState<AppStore>(() => makeStore(preloadedState));
 
   return <Provider store={store}>{children}</Provider>;

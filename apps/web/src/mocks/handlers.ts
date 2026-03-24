@@ -15,6 +15,8 @@ export async function themeDetailResponse(slug: string) {
 
     return HttpResponse.json(theme);
   } catch (error) {
+    // mock adapter と同じ not found 契約を HTTP ステータスへ写像し、
+    // UI テストでは transport 差分だけを確認できるようにする。
     if (error instanceof ApiNotFoundError) {
       return HttpResponse.json({ message: error.message }, { status: 404 });
     }

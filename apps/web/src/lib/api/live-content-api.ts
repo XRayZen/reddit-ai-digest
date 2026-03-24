@@ -34,7 +34,7 @@ async function parseErrorMessage(response: Response): Promise<string> {
       return payload.message;
     }
   } catch {
-    // Fall back to a generic message when the response body is not JSON.
+    // API が JSON 以外を返しても、呼び出し元は一貫したエラー型で扱えるようにする。
   }
 
   return `Request failed: ${response.status}`;

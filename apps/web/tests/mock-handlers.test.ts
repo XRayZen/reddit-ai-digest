@@ -3,6 +3,7 @@ import { getThemeFixture, listThemes } from "@/mocks/fixtures/content-fixtures";
 
 describe("mock handlers", () => {
   it("returns the same themes as the mock adapter source", async () => {
+    // handler と app-facing mock client が同じ fixture 境界を共有していることを確認する。
     const response = await themesResponse();
 
     expect(response.status).toBe(200);

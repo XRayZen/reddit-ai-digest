@@ -27,6 +27,7 @@ export function ArticleDetailView({ article }: { article: ArticleDetail }) {
       </section>
 
       <section className="grid gap-5 xl:grid-cols-2">
+        {/* 翻訳と要約を横並びにして、原文を読まなくても差分を掴みやすくする。 */}
         <Card>
           <CardHeader className="gap-3">
             <p className="eyebrow">Japanese Translation</p>
@@ -63,6 +64,7 @@ export function ArticleDetailView({ article }: { article: ArticleDetail }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
+          {/* key points は文量が読めないため、区切り線で長文でも視線を切りやすくする。 */}
           <ul className="grid gap-4">
             {article.keyPoints.map((point, index) => (
               <li key={point} className="space-y-4">

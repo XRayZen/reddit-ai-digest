@@ -41,6 +41,7 @@ export function HomeScreen({ themes }: { themes: Theme[] }) {
       </section>
 
       <section>
+        {/* テーマ一覧は下位 component に閉じ、ホームは紹介文と導線の構成だけを持つ。 */}
         <SectionHeader
           eyebrow="Topics"
           title="テーマ一覧"

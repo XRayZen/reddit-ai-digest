@@ -21,12 +21,14 @@ const uiPreferencesSlice = createSlice({
   initialState: initialUiPreferencesState,
   reducers: {
     setThemeSortOrder(state, action: PayloadAction<ThemeSortOrder>) {
+      // データ自体はサーバー由来なので、Redux には一覧表示の選好だけを置く。
       state.themeSortOrder = action.payload;
     },
     setThemeFilterLabel(state, action: PayloadAction<string>) {
       state.themeFilterLabel = action.payload;
     },
     startAdminAction(state, action: PayloadAction<string>) {
+      // 管理操作は mock 段階でも pending / done の手触りを再現する。
       state.adminActionPending = true;
       state.adminMessage = action.payload;
     },

@@ -12,6 +12,7 @@ function sortArticles(
   articles: ThemeDetail["articles"],
   sortOrder: "newest" | "points",
 ) {
+  // 元配列を破壊せず、UI 状態に応じた並び替え結果だけを派生させる。
   return [...articles].sort((left, right) => {
     if (sortOrder === "points") {
       return right.pointCount - left.pointCount;
@@ -44,6 +45,7 @@ export function ThemeDetailClient({ theme }: { theme: ThemeDetail }) {
   const filteredArticles = theme.articles.filter(
     (article) => filterLabel === "all" || article.stanceLabel === filterLabel,
   );
+  // フィルタと並び替えは Redux に寄せ、画面を離れても UI 選好を再利用しやすくする。
   const sortedArticles = sortArticles(filteredArticles, sortOrder);
 
   return (
@@ -64,6 +66,7 @@ export function ThemeDetailClient({ theme }: { theme: ThemeDetail }) {
             <p className="eyebrow">List Controls</p>
             <h2 className="font-display text-3xl leading-none">記事一覧</h2>
           </div>
+          {/* sort / filter UI はローカル state に閉じず、他画面でも再利用できる store 更新に合わせる。 */}
           <label className="grid gap-2 text-sm text-muted-foreground">
             <span>並び替え</span>
             <select
@@ -101,6 +104,7 @@ export function ThemeDetailClient({ theme }: { theme: ThemeDetail }) {
           </label>
         </div>
         <div className="mt-6">
+          {/* 空状態の表現は ArticleList に集約し、この画面では一覧条件だけを決める。 */}
           <ArticleList articles={sortedArticles} />
         </div>
       </section>

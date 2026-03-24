@@ -7,6 +7,7 @@ describe("live content api", () => {
   const originalBaseUrl = process.env.CONTENT_API_BASE_URL;
 
   beforeEach(() => {
+    // 各テストが同じ live 前提から始まるよう、env を毎回固定する。
     process.env.CONTENT_API_MODE = "live";
     process.env.CONTENT_API_BASE_URL = "https://example.test";
     vi.restoreAllMocks();
@@ -15,6 +16,7 @@ describe("live content api", () => {
   afterEach(() => {
     vi.restoreAllMocks();
 
+    // 他テストへ env を漏らさないこと自体が、モード切替えテストの前提になる。
     if (originalMode === undefined) {
       delete process.env.CONTENT_API_MODE;
     } else {
@@ -48,6 +50,7 @@ describe("live content api", () => {
   });
 
   it("maps 404 responses to ApiNotFoundError", async () => {
+    // HTTP transport の 404 を domain 寄りの例外へ揃え、UI 層の分岐を単純化する。
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ message: "Theme not found" }), {
         status: 404,
@@ -76,6 +79,7 @@ describe("live content api", () => {
   });
 
   it("fails when the response body is not valid JSON", async () => {
+    // 200 でも payload が壊れていれば request error 扱いにする契約を守る。
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("not-json", {
         status: 200,

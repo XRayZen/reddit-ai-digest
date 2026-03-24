@@ -4,6 +4,7 @@ import type { ArticleCardItem } from "@/types/content";
 
 export function ArticleList({ articles }: { articles: ArticleCardItem[] }) {
   if (articles.length === 0) {
+    // 収集前・絞り込み結果ゼロの両方を同じ UI で扱い、親側に分岐を増やさない。
     return (
       <EmptyState
         title="記事はまだありません"

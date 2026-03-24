@@ -57,6 +57,7 @@ export function AdminDashboard({ jobs }: { jobs: AdminJob[] }) {
   );
 
   function runMockAction(label: string) {
+    // 実 API 追加前でも、押下中表示と完了表示の状態遷移だけは先に固めておく。
     dispatch(startAdminAction(`${label} をキュー投入中です`));
     startTransition(() => {
       window.setTimeout(() => {
@@ -107,6 +108,7 @@ export function AdminDashboard({ jobs }: { jobs: AdminJob[] }) {
           </div>
         </CardHeader>
         <CardContent className="pt-0">
+          {/* dispatch と transition の両方を見て、連打よりも操作状態の一貫性を優先する。 */}
           <Badge
             variant={
               adminActionPending || isTransitionPending
@@ -128,6 +130,7 @@ export function AdminDashboard({ jobs }: { jobs: AdminJob[] }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
+          {/* 履歴ゼロも正しい初期状態なので、空テーブルではなく empty state を明示する。 */}
           {jobs.length === 0 ? (
             <EmptyState
               title="ジョブはまだありません"

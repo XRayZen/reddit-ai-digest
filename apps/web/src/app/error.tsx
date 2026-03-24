@@ -19,6 +19,7 @@ export default function Error({
           "再読み込みしても改善しない場合は実装を確認してください。"
         }
       />
+      {/* App Router の reset をそのまま exposed し、画面ごとの再試行 UI を増やさない。 */}
       <Button
         type="button"
         variant="outline"

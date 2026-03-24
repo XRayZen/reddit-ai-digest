@@ -18,6 +18,7 @@ describe("AdminDashboard", () => {
   });
 
   it("shows the action controls for ingest and resummarize", () => {
+    // mock 実装でも「操作中は他ボタンを止める」体験を先に固定する。
     const store = makeStore();
 
     render(

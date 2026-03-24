@@ -21,6 +21,7 @@ export function Header() {
           className="flex flex-wrap items-center gap-2"
           aria-label="Main navigation"
         >
+          {/* 初期 MVP の 3 導線だけを固定で見せ、主要画面の往復を最短にする。 */}
           <Button asChild variant="ghost" size="sm">
             <Link href="/">Home</Link>
           </Button>

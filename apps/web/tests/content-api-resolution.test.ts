@@ -6,6 +6,7 @@ describe("content api resolution", () => {
   const originalMode = process.env.CONTENT_API_MODE;
 
   afterEach(() => {
+    // resolveContentApi の既定動作を正しく見るため、env は必ず元に戻す。
     if (originalMode === undefined) {
       delete process.env.CONTENT_API_MODE;
     } else {
@@ -14,6 +15,7 @@ describe("content api resolution", () => {
   });
 
   it("defaults to the mock adapter", () => {
+    // FE 先行フェーズでは backend 未接続でも画面が壊れないことを優先する。
     delete process.env.CONTENT_API_MODE;
 
     expect(resolveContentApi()).toBe(mockContentApi);

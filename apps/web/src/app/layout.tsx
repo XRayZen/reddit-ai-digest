@@ -22,6 +22,8 @@ export default function RootLayout({
       <body
         className={`${appFontClassName} min-h-screen bg-background text-foreground antialiased`}
       >
+        {/* App Router 配下の client component だけが Redux を使えるよう、
+            provider は最上位で一度だけ包む。 */}
         <StoreProvider>
           <main className="page-shell">
             <Header />

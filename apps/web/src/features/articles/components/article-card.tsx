@@ -38,6 +38,7 @@ export function ArticleCard({ article }: { article: ArticleCardItem }) {
           </p>
         </CardContent>
         <CardFooter className="mt-auto justify-between gap-3 bg-transparent text-sm text-muted-foreground">
+          {/* 一覧カードでは詳細情報を詰め込みすぎず、次の導線を 2 つに絞る。 */}
           <span>{article.pointCount} key points</span>
           <Button asChild variant="link" size="sm">
             <Link href={`/themes/${article.themeSlug}`}>テーマへ戻る</Link>

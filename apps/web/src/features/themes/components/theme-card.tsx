@@ -7,6 +7,7 @@ import type { Theme } from "@/types/content";
 export function ThemeCard({ theme }: { theme: Theme }) {
   return (
     <Link href={`/themes/${theme.slug}`} className="block h-full">
+      {/* カード全体をリンクにして、一覧画面でクリックターゲットを広く保つ。 */}
       <Card className="h-full transition-transform duration-200 hover:-translate-y-1 hover:border-primary/30">
         <CardHeader className="gap-3">
           <div className="flex items-center justify-between gap-3">

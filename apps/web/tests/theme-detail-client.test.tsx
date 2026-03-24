@@ -11,6 +11,7 @@ describe("ThemeDetailClient", () => {
 
     expect(theme).not.toBeNull();
 
+    // Redux を経由した filter 操作が一覧表示に反映される契約を見る。
     const store = makeStore();
 
     render(

@@ -11,6 +11,7 @@ export type AppPreloadedState = {
 };
 
 export const makeStore = (preloadedState?: AppPreloadedState) =>
+  // story / test ごとの差分指定をしやすいよう、初期 state と部分上書きをここで合成する。
   configureStore({
     reducer: {
       uiPreferences: uiPreferencesReducer,
