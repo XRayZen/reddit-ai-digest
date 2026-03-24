@@ -417,6 +417,69 @@ UI 回帰テストとして DOM ベースのスナップショットテストが
 
 ---
 
+# ADR-0011: apps/web に Playwright による導線 E2E テストを導入する
+
+## ステータス
+採用
+
+## コンテキスト
+`apps/web` ではすでに以下の品質確認が存在する:
+
+- `Vitest + Testing Library`
+  - 振る舞いテスト
+- `Storybook + Playwright`
+  - visual golden
+- `Browser Use`
+  - 探索的確認
+
+ただし、Next.js 実画面上での主要導線を固定回帰として継続検証する E2E は未整備だった。
+
+このため、以下の不具合を品質ゲートに含めにくかった:
+
+- ホームからテーマ詳細への遷移不良
+- テーマ詳細から記事詳細への遷移不良
+- 実ルーティング配下での表示崩れや取得境界の接続不良
+- 管理画面導線の退行
+
+## 決定
+`apps/web` に Playwright E2E を追加し、主要導線の固定回帰を検証する。
+
+方針:
+
+- Storybook 用 Playwright とは別設定で管理する
+- Next.js の production build + `next start` を E2E 専用ポートで起動して実画面を検証する
+- 初期ブラウザは `chromium` に限定する
+- `CONTENT_API_MODE=mock` を既定にし、fixture ベースで安定実行する
+- MVP の主要導線
+  - home
+  - theme detail
+  - article detail
+  - admin
+  を品質ゲートに含める
+
+### 役割分担
+- **Vitest + Testing Library**: 振る舞いテスト
+- **Storybook + Playwright**: 見た目回帰テスト
+- **Playwright E2E**: 画面遷移と導線回帰テスト
+- **Browser Use**: 探索的確認
+
+関連ドキュメント:
+- `docs/plans/web-playwright-user-flow-e2e-plan.md`
+
+## 影響
+### 利点
+- **導線退行の検知**: 主要ページ遷移と実ルーティングの不具合を自動検知できる
+- **責務分離**: visual regression と user flow regression の責務が明確になる
+- **CI 品質向上**: 手動確認に寄っていた主要導線を継続的に監視できる
+- **失敗解析**: trace、screenshot、video により原因を追いやすい
+
+### 欠点
+- production build を伴うためローカル / CI の実行時間が増える
+- 安定した locator のために UI 側の文言やアクセシビリティを意識する必要がある
+- browser / report / artifact 管理が増える
+
+---
+
 ## 更新ルール
 - 新しい重要判断を追加する場合は、新しい ADR 番号を付ける
 - 既存判断を上書きせず、変更理由がある場合は新しい ADR を追加する

@@ -179,13 +179,15 @@ make test
 - Storybook が `apps/web` 単体で起動できる
 - `build-storybook` が成功する
 - Playwright visual golden が baseline と一致する
+- Playwright E2E が production build ベースで主要導線を通過する
 
 ### 7.4 Storybook / visual regression
 
 - Storybook は page 直結ではなく表示コンポーネント単位で story を持つ
 - page 相当 story のみ `pageShell` を付け、部品 story は shell なしで比較する
 - 見た目回帰は `Storybook + Playwright` で固定する
-- `test:golden` と `test:golden:update` は既存 `6006` サーバを再利用しない
+- `test:golden` と `test:golden:update` は毎回 `storybook-static` を作り直して専用 HTTP server で配信する
+- CI では `build-storybook` 済み成果物を golden test で再利用し、build の重複を避ける
 - `test:golden:update` は意図した UI 変更時のみ実行する
 
 確認コマンド:
@@ -195,6 +197,7 @@ corepack pnpm --filter @reddit-ai-digest/web storybook
 corepack pnpm --filter @reddit-ai-digest/web build-storybook
 corepack pnpm --filter @reddit-ai-digest/web test:golden
 corepack pnpm --filter @reddit-ai-digest/web test:golden:update
+corepack pnpm --filter @reddit-ai-digest/web test:e2e
 ```
 
 確認観点:
@@ -202,6 +205,7 @@ corepack pnpm --filter @reddit-ai-digest/web test:golden:update
 - `ThemeCard`、`ArticleCard`、`ArticleDetailView`、`ThemeDetailClient`、`AdminDashboard` の主要 state が固定比較できる
 - 長文、空状態、エラー状態、ロード状態を story と baseline に含める
 - diff は `playwright-report/` と `test-results/` で確認する
+- E2E は home -> theme detail -> article detail -> admin の主要導線が通ることを確認する
 
 ---
 
