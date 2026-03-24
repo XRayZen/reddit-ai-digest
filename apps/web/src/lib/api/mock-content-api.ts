@@ -8,9 +8,15 @@ import {
 import { ApiNotFoundError } from "@/lib/api/errors";
 import type { ContentApi } from "@/lib/api/types";
 
+function cloneMockValue<T>(value: T): T {
+  // fixture の参照をそのまま返すと、UI やテストでの mutation が次の取得へ漏れる。
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 function withLatency<T>(value: T): Promise<T> {
   return new Promise((resolve) => {
-    setTimeout(() => resolve(value), 30);
+    // Promise 化だけで終わらせず少し待たせ、loading UI の確認をローカルでも再現しやすくする。
+    setTimeout(() => resolve(cloneMockValue(value)), 30);
   });
 }
 
@@ -25,6 +31,7 @@ export const mockContentApi: ContentApi = {
     const theme = getThemeFixture(slug);
 
     if (!theme) {
+      // mock でも live と同じ not-found 契約を返し、page の分岐を共通化する。
       throw new ApiNotFoundError(`Theme not found: ${slug}`);
     }
 

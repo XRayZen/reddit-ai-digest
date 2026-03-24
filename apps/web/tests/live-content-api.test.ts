@@ -31,6 +31,7 @@ describe("live content api", () => {
   });
 
   it("uses the configured base url for live requests", async () => {
+    // transport 層が環境変数から接続先を組み立てる契約を固定する。
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify([{ slug: "software-engineering" }]), {
         status: 200,
@@ -64,6 +65,7 @@ describe("live content api", () => {
   });
 
   it("maps server errors to ApiRequestError", async () => {
+    // 非 404 は request error に畳み、画面ごとに status 判定を書かずに済ませる。
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ message: "Internal error" }), {
         status: 500,
@@ -93,6 +95,7 @@ describe("live content api", () => {
   });
 
   it("requires a base url in live mode", async () => {
+    // live 実装の設定漏れを早期に検知し、空 URL での fetch を許さない。
     delete process.env.CONTENT_API_BASE_URL;
     vi.spyOn(globalThis, "fetch");
 

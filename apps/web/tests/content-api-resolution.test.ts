@@ -22,6 +22,7 @@ describe("content api resolution", () => {
   });
 
   it("uses the live adapter only when explicitly requested", () => {
+    // 誤って live を既定化すると Storybook / E2E が不安定になるため、明示 opt-in を守る。
     process.env.CONTENT_API_MODE = "live";
 
     expect(resolveContentApi()).toBe(liveContentApi);

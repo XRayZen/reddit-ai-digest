@@ -8,6 +8,6 @@ describe("ArticleList", () => {
     // 親画面ごとに空配列分岐を実装しなくて済むことを保証する。
     render(createElement(ArticleList, { articles: [] }));
 
-    expect(screen.getByText("記事はまだありません")).toBeInTheDocument();
+    expect(screen.getByText("表示できる記事がありません")).toBeInTheDocument();
   });
 });
