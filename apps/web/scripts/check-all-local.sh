@@ -17,6 +17,11 @@ run_step() {
 
 cd "${REPO_ROOT}"
 
+export CONTENT_API_MODE="${CONTENT_API_MODE:-mock}"
+
+echo "Using CONTENT_API_MODE=${CONTENT_API_MODE}"
+echo "Live transport tests run under Vitest with mocked fetch responses."
+
 run_step "TypeScript typecheck" corepack pnpm --filter @reddit-ai-digest/web typecheck
 run_step "ESLint" corepack pnpm --filter @reddit-ai-digest/web lint
 run_step "Unit tests" corepack pnpm --filter @reddit-ai-digest/web test
