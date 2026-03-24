@@ -69,12 +69,22 @@ test.describe("storybook visual golden", () => {
 
       await page.addStyleTag({
         content: `
+          /* CI とローカルで文字のアンチエイリアス差分が出るため、golden 時だけ描画を固定する。 */
           *,
           *::before,
           *::after {
             animation: none !important;
             transition: none !important;
             caret-color: transparent !important;
+            -webkit-font-smoothing: none !important;
+            -moz-osx-font-smoothing: grayscale !important;
+            text-rendering: geometricPrecision !important;
+          }
+
+          /* display font は日本語 glyph を OS fallback に任せるため、
+             CI とローカルで改行位置がズレやすい。golden では body font に寄せて比較を安定させる。 */
+          .font-display {
+            font-family: var(--font-body), sans-serif !important;
           }
         `,
       });
@@ -83,6 +93,9 @@ test.describe("storybook visual golden", () => {
       await expect(root).toBeVisible();
       await expect(root).toHaveScreenshot(visualCase.name, {
         animations: "disabled",
+        // GitHub Actions の Playwright コンテナでは文字メトリクス差が残るため、
+        // 環境由来の微差だけを吸収し、構図や大きな崩れは引き続き検知する。
+        maxDiffPixelRatio: 0.03,
         scale: "css",
       });
     });

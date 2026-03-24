@@ -1,0 +1,96 @@
+name: web-ui
+
+on:
+  pull_request:
+    paths:
+      # Web UI の実行結果に影響する入力だけを対象にして、無関係な PR での実行を避ける。
+      - "apps/web/**"
+      - "docs/operations/local-development.md"
+      - "docs/plans/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/web-ui.yml"
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "apps/web/**"
+      - "docs/operations/local-development.md"
+      - "docs/plans/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/web-ui.yml"
+
+jobs:
+  web-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      # Playwright 公式イメージを使い、browser のダウンロード待ちと OS 依存差分を減らす。
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+      options: --user 1001 --ipc=host
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      # setup-node の pnpm cache を有効化して、依存解決の待ち時間を減らす。
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      # lockfile と CI 上の pnpm バージョンを固定し、ローカルとの差分混入を防ぐ。
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          # E2E の production build を高速化するため、Next.js の filesystem cache を共有する。
+          path: apps/web/.next/cache
+          key: ${{ runner.os }}-nextjs-web-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/**/*.ts', 'apps/web/**/*.tsx', 'apps/web/**/*.js', 'apps/web/**/*.jsx', 'apps/web/**/*.mjs', 'apps/web/**/*.css', 'apps/web/**/*.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-web-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      - name: Lint
+        run: corepack pnpm lint:web
+
+      - name: Typecheck
+        run: corepack pnpm typecheck:web
+
+      - name: Unit tests
+        run: corepack pnpm test:web
+
+      - name: Build Storybook
+        run: corepack pnpm --filter @reddit-ai-digest/web build-storybook
+
+      - name: Storybook golden tests
+        # 直前の build 成果物をそのまま使い、Storybook の二重起動と再 build を避ける。
+        run: corepack pnpm --filter @reddit-ai-digest/web test:golden:prebuilt
+
+      - name: Playwright E2E tests
+        run: corepack pnpm test:e2e:web
+
+      - name: Upload visual artifacts
+        # テスト失敗時のスクリーンショットや HTML report を必ず回収して原因調査をしやすくする。
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-ui-artifacts
+          # PNG 中心で再圧縮の旨味が小さいため、upload 時間を優先する。
+          compression-level: 0
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
