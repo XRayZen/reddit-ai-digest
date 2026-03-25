@@ -19,8 +19,6 @@ on:
     paths:
       # Web UI の実行結果に影響する入力だけを対象にして、無関係な PR での実行を避ける。
       - "apps/web/**"
-      - "docs/operations/local-development.md"
-      - "docs/plans/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -31,8 +29,6 @@ on:
       - develop
     paths:
       - "apps/web/**"
-      - "docs/operations/local-development.md"
-      - "docs/plans/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
