@@ -187,6 +187,7 @@ make logs
 - 関連テストが通る
 - lint / format が通る
 - 必要なドキュメント更新が行われている
+- バックエンド変更時は `apps/api/scripts/check-all-local.sh` が通る
 
 追加観点:
 
@@ -221,6 +222,19 @@ corepack pnpm --filter @reddit-ai-digest/web build-storybook
 corepack pnpm --filter @reddit-ai-digest/web test:golden
 corepack pnpm --filter @reddit-ai-digest/web test:golden:update
 corepack pnpm --filter @reddit-ai-digest/web test:e2e
+```
+
+### 7.5 apps/api E2E
+
+- `apps/api/e2e` は seed 済み MySQL と実 API を使って、Connect read API と管理 REST をまとめて確認する
+- 基本フローは `seed -> 各 EP 呼び出し -> レスポンス検証 -> DB 検証 -> cleanup`
+- 管理ジョブの queued 状態を安定して検証するため、ローカル一括チェックでは `worker` を起動しない
+
+確認コマンド:
+
+```bash
+corepack pnpm test:e2e:api
+./apps/api/scripts/check-all-local.sh
 ```
 
 確認観点:

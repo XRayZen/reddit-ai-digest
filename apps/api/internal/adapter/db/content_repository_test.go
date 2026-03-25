@@ -3,10 +3,14 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/XRayZen/reddit-ai-digest/apps/api/internal/domain"
 	"github.com/XRayZen/reddit-ai-digest/internal/platform/database"
 	"log/slog"
 )
@@ -24,10 +28,39 @@ func setupTestDB(t *testing.T) *ThemeRepository {
 	if err := createContentTestSchema(context.Background(), sqlDB); err != nil {
 		t.Fatalf("create test schema: %v", err)
 	}
-	if err := Seed(context.Background(), gormDB); err != nil {
+	if err := applySeedFile(context.Background(), sqlDB, "../../../seeds/seed_data.sql"); err != nil {
 		t.Fatalf("seed database: %v", err)
 	}
 	return NewThemeRepository(gormDB, slog.Default())
+}
+
+func applySeedFile(ctx context.Context, db *sql.DB, seedPath string) error {
+	body, err := os.ReadFile(seedPath)
+	if err != nil {
+		return err
+	}
+	query := stripMySQLComments(string(body))
+	if _, err := db.ExecContext(ctx, query); err != nil {
+		return fmt.Errorf("exec seed: %w", err)
+	}
+	return nil
+}
+
+// stripMySQLComments は MySQL の COMMENT 句を削除し、INSERT IGNORE を INSERT OR IGNORE に変換する（SQLite 互換化）
+func stripMySQLComments(query string) string {
+	columnCommentPattern := regexp.MustCompile(`(?m)\s+COMMENT\s+'[^']*'`)
+	tableCommentPattern := regexp.MustCompile(`(?m)\)\s+COMMENT='[^']*'`)
+	indexCommentPattern := regexp.MustCompile(`(?m)\s+COMMENT='[^']*'`)
+	insertIgnorePattern := regexp.MustCompile(`INSERT IGNORE`)
+	onDuplicateKeyPattern := regexp.MustCompile(`(?s)ON DUPLICATE KEY UPDATE.*?;`)
+
+	query = columnCommentPattern.ReplaceAllString(query, "")
+	query = tableCommentPattern.ReplaceAllString(query, ")")
+	query = indexCommentPattern.ReplaceAllString(query, "")
+	query = insertIgnorePattern.ReplaceAllString(query, "INSERT OR IGNORE")
+	// ON DUPLICATE KEY UPDATE は SQLite で使えないので削除（idempotency_keyがUNIQUEなので重複エラーにはならない）
+	query = onDuplicateKeyPattern.ReplaceAllString(query, ";")
+	return query
 }
 
 func createContentTestSchema(ctx context.Context, db *sql.DB) error {
@@ -190,5 +223,18 @@ func TestArticleQueriesPreferHighestSummaryIDWhenCreatedAtMatches(t *testing.T) 
 	}
 	if detail.Summary != "newest-summary" {
 		t.Fatalf("expected deterministic latest summary, got %s", detail.Summary)
+	}
+}
+
+func TestListArticlesReturnsNotFoundForUnknownTheme(t *testing.T) {
+	themeRepo := setupTestDB(t)
+	articleRepo := NewArticleRepository(themeRepo.db, slog.Default())
+
+	_, _, err := articleRepo.ListArticles(context.Background(), "missing-theme", 10, 0)
+	if err == nil {
+		t.Fatal("expected not found error")
+	}
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }

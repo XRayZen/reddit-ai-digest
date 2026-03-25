@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/XRayZen/reddit-ai-digest/internal/platform/jobs"
@@ -54,7 +55,14 @@ func (s *Service) enqueue(ctx context.Context, jobType adminv1.JobType, targetID
 	if idempotencyKey == "" {
 		return jobs.Job{}, fmt.Errorf("%w: idempotency key is required", ErrInvalidArgument)
 	}
-	existing, err := s.repo.FindByIdempotencyKey(ctx, idempotencyKey)
+	if strings.TrimSpace(targetID) == "" {
+		return jobs.Job{}, fmt.Errorf("%w: target id is required", ErrInvalidArgument)
+	}
+
+	// 管理 UI が同じ raw key を別操作に使っても衝突しないよう、
+	// job type と対象IDを含めた保存キーに正規化して扱う。
+	scopedKey := scopedIdempotencyKey(jobType, targetID, idempotencyKey)
+	existing, err := s.repo.FindByIdempotencyKey(ctx, scopedKey)
 	if err != nil {
 		return jobs.Job{}, err
 	}
@@ -69,9 +77,13 @@ func (s *Service) enqueue(ctx context.Context, jobType adminv1.JobType, targetID
 		TargetID:       targetID,
 		TargetLabel:    targetLabel,
 		RequestedBy:    requestedBy,
-		IdempotencyKey: idempotencyKey,
+		IdempotencyKey: scopedKey,
 		TraceID:        traceID,
 		RequestedAt:    time.Now().UTC(),
 	}
 	return s.repo.Enqueue(ctx, job)
+}
+
+func scopedIdempotencyKey(jobType adminv1.JobType, targetID string, rawKey string) string {
+	return fmt.Sprintf("%s:%s:%s", jobType.String(), targetID, rawKey)
 }

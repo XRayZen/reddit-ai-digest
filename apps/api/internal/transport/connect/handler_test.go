@@ -72,3 +72,32 @@ func TestArticleHandlerMapsInvalidPageTokenToInvalidArgument(t *testing.T) {
 		t.Fatalf("expected invalid argument, got %v", connectErr.Code())
 	}
 }
+
+type articleRepoNotFoundStub struct{}
+
+func (articleRepoNotFoundStub) ListArticles(_ context.Context, _ string, _ int, _ int) ([]domain.ArticleCard, bool, error) {
+	return nil, false, domain.ErrNotFound
+}
+
+func (articleRepoNotFoundStub) GetArticle(_ context.Context, _ string) (domain.ArticleDetail, error) {
+	return domain.ArticleDetail{}, domain.ErrNotFound
+}
+
+func TestArticleHandlerMapsMissingThemeToNotFound(t *testing.T) {
+	handler := NewArticleHandler(articleusecase.NewService(articleRepoNotFoundStub{}))
+
+	_, err := handler.ListArticles(context.Background(), connect.NewRequest(&articlev1.ListArticlesRequest{
+		ThemeSlug: "missing-theme",
+		PageSize:  10,
+	}))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	connectErr := new(connect.Error)
+	if !errors.As(err, &connectErr) {
+		t.Fatalf("expected connect error, got %T", err)
+	}
+	if connectErr.Code() != connect.CodeNotFound {
+		t.Fatalf("expected not found, got %v", connectErr.Code())
+	}
+}

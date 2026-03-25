@@ -53,6 +53,11 @@ go.work
 /bin/
 /tmp/
 
+# Binary files (Go executables without extension)
+/api
+/worker
+/a.out
+
 # Build outputs
 /api/
 /internal/

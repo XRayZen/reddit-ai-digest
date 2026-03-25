@@ -649,7 +649,6 @@
 - `internal/usecase/article/service.go` - Article usecase
 - `internal/usecase/admin/service.go` - Admin usecase
 - `internal/adapter/db/content_repository.go` - Repository 実装
-- `internal/adapter/db/seeder.go` - Seeder
 - `internal/transport/connect/theme_handler.go` - Connect handler
 - `internal/transport/connect/article_handler.go` - Connect handler
 - `internal/transport/http/admin_handler.go` - REST admin handler
@@ -657,6 +656,7 @@
 - `internal/infra/logger/logger.go` - ロガー
 - `internal/infra/httpserver/middleware.go` - HTTP ミドルウェア
 - `migrations/0001_initial.up.sql` - 初期 migration
+- `seeds/seed_data.sql` - シードデータ（開発・検証用）
 
 ### Worker (`apps/worker/`)
 - `cmd/worker/main.go` - メインワーカー

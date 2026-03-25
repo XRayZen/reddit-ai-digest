@@ -222,6 +222,9 @@ func (r *ArticleRepository) ListArticles(ctx context.Context, themeSlug string, 
 	defer span.End()
 
 	r.logger.InfoContext(ctx, "listing articles", "trace_id", traceutil.FromContext(ctx), "theme_slug", themeSlug, "limit", limit, "offset", offset)
+	if err := r.ensureThemeExists(ctx, themeSlug); err != nil {
+		return nil, false, err
+	}
 	var rows []articleListRow
 	if err := r.db.WithContext(ctx).
 		Table("topic_groups AS tg").
@@ -347,7 +350,7 @@ func (r *ArticleRepository) ensureThemeExists(ctx context.Context, themeSlug str
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return domain.ErrNotFound
 		}
-		return err
+		return fmt.Errorf("ensure theme exists: %w", err)
 	}
 	return nil
 }

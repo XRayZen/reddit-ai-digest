@@ -166,6 +166,60 @@ func TestRunIngestionReturnsBadRequestForInvalidInput(t *testing.T) {
 	}
 }
 
+func TestRunIngestionReturnsBadRequestForEmptyThemeSlug(t *testing.T) {
+	handler := setupAdminHandler(t)
+	mux := http.NewServeMux()
+	handler.Register(mux)
+
+	body, err := json.Marshal(map[string]string{
+		"themeSlug":      "",
+		"requestedBy":    "tester",
+		"idempotencyKey": "idem-1",
+	})
+	if err != nil {
+		t.Fatalf("marshal request body: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/ingestions/run", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Admin-Token", "secret")
+	req = req.WithContext(traceutil.WithTraceID(req.Context(), "trc_test"))
+	resp := httptest.NewRecorder()
+
+	mux.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", resp.Code)
+	}
+}
+
+func TestRunResummarizationReturnsBadRequestForEmptyArticleID(t *testing.T) {
+	handler := setupAdminHandler(t)
+	mux := http.NewServeMux()
+	handler.Register(mux)
+
+	body, err := json.Marshal(map[string]string{
+		"articleId":      "",
+		"requestedBy":    "tester",
+		"idempotencyKey": "idem-1",
+	})
+	if err != nil {
+		t.Fatalf("marshal request body: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/summaries/rerun", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Admin-Token", "secret")
+	req = req.WithContext(traceutil.WithTraceID(req.Context(), "trc_test"))
+	resp := httptest.NewRecorder()
+
+	mux.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", resp.Code)
+	}
+}
+
 func TestRunIngestionReturnsInternalServerErrorForRepositoryFailure(t *testing.T) {
 	handler := setupAdminHandlerWithRepo(t, failingJobRepository{})
 	mux := http.NewServeMux()

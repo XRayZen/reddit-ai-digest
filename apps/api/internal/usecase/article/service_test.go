@@ -54,3 +54,13 @@ func TestListArticlesRejectsInvalidPageToken(t *testing.T) {
 		t.Fatalf("expected ErrInvalidPageToken, got %v", err)
 	}
 }
+
+func TestListArticlesReturnsNotFound(t *testing.T) {
+	svc := NewService(fakeRepository{err: domain.ErrNotFound})
+
+	if _, _, err := svc.ListArticles(context.Background(), "missing-theme", 10, ""); err == nil {
+		t.Fatal("expected not found error")
+	} else if !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}

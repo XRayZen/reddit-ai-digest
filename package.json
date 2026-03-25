@@ -5,11 +5,12 @@
   "scripts": {
     "proto:generate": "corepack pnpm exec buf generate",
     "proto:lint": "corepack pnpm exec buf lint",
-    "proto:breaking": "corepack pnpm exec buf breaking --against '.git#branch=main'",
+    "proto:breaking": "corepack pnpm exec buf breaking --against '.git#branch=origin/main'",
     "test:go": "PATH=\"$HOME/.local/go/bin:$PATH\" go test ./...",
     "format:go": "PATH=\"$HOME/.local/go/bin:$PATH\" gofmt -w $(find apps packages -name '*.go' -print)",
     "migrate:api": "PATH=\"$HOME/.local/go/bin:$PATH\" go run ./apps/api/cmd/migrate",
     "seed:api": "PATH=\"$HOME/.local/go/bin:$PATH\" go run ./apps/api/cmd/seed",
+    "test:e2e:api": "PATH=\"$HOME/.local/go/bin:$PATH\" go test -tags=e2e ./apps/api/e2e/...",
     "dev:api": "PATH=\"$HOME/.local/go/bin:$PATH\" go run ./apps/api/cmd/api",
     "dev:worker": "PATH=\"$HOME/.local/go/bin:$PATH\" go run ./apps/worker/cmd/worker",
     "dev:web": "corepack pnpm --filter @reddit-ai-digest/web dev",

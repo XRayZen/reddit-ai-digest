@@ -30,6 +30,9 @@ func (h *ArticleHandler) ListArticles(ctx context.Context, req *connect.Request[
 		if errors.Is(err, shared.ErrInvalidPageToken) {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
+		if errors.Is(err, domain.ErrNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	response := &articlev1.ListArticlesResponse{NextPageToken: nextToken}
