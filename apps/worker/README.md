@@ -83,3 +83,18 @@
 - prompt / schema 影響を確認済み
 - 必要な docs 更新がある
 - セルフレビュー済みである
+
+---
+
+## ローカル起動
+
+標準導線は root の Compose です。
+
+```bash
+cp infra/compose/.env.example infra/compose/.env
+docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env up -d worker
+```
+
+補足:
+- Worker は `mysql` の health 完了後に起動する
+- 標準接続先は `DATABASE_DSN=app:app@tcp(mysql:3306)/reddit_ai_digest?...` である
