@@ -1,22 +1,24 @@
+import { Code, ConnectError } from "@connectrpc/connect";
+
 import { ApiNotFoundError, ApiRequestError } from "@/lib/api/errors";
 import { fetchJson, liveContentApi } from "@/lib/api/live-content-api";
-import type { Theme } from "@/types/content";
+import * as rpcClients from "@/lib/api/rpc-clients";
 
 describe("live content api", () => {
   const originalMode = process.env.CONTENT_API_MODE;
   const originalBaseUrl = process.env.CONTENT_API_BASE_URL;
+  const originalAdminToken = process.env.CONTENT_API_ADMIN_TOKEN;
 
   beforeEach(() => {
-    // 各テストが同じ live 前提から始まるよう、env を毎回固定する。
     process.env.CONTENT_API_MODE = "live";
     process.env.CONTENT_API_BASE_URL = "https://example.test";
+    process.env.CONTENT_API_ADMIN_TOKEN = "secret-token";
     vi.restoreAllMocks();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
 
-    // 他テストへ env を漏らさないこと自体が、モード切替えテストの前提になる。
     if (originalMode === undefined) {
       delete process.env.CONTENT_API_MODE;
     } else {
@@ -28,60 +30,149 @@ describe("live content api", () => {
     } else {
       process.env.CONTENT_API_BASE_URL = originalBaseUrl;
     }
+
+    if (originalAdminToken === undefined) {
+      delete process.env.CONTENT_API_ADMIN_TOKEN;
+    } else {
+      process.env.CONTENT_API_ADMIN_TOKEN = originalAdminToken;
+    }
   });
 
-  it("uses the configured base url for live requests", async () => {
-    // transport 層が環境変数から接続先を組み立てる契約を固定する。
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify([{ slug: "software-engineering" }]), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
-    );
+  it("uses the configured base url for connect read clients", async () => {
+    const listThemes = vi.fn().mockResolvedValue({
+      themes: [
+        {
+          slug: "software-engineering",
+          name: "Software Engineering",
+          description: "desc",
+          articleCount: 3,
+        },
+      ],
+      nextPageToken: "",
+    });
+
+    vi.spyOn(rpcClients, "createThemeServiceClient").mockReturnValue({
+      listThemes,
+      getTheme: vi.fn(),
+    } as ReturnType<typeof rpcClients.createThemeServiceClient>);
 
     await liveContentApi.getThemes();
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://example.test/api/themes",
-      expect.objectContaining({
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      }),
+    expect(rpcClients.createThemeServiceClient).toHaveBeenCalledWith(
+      "https://example.test",
     );
+    expect(listThemes).toHaveBeenCalledWith({
+      pageSize: 50,
+      pageToken: "",
+    });
   });
 
-  it("maps 404 responses to ApiNotFoundError", async () => {
-    // HTTP transport の 404 を domain 寄りの例外へ揃え、UI 層の分岐を単純化する。
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ message: "Theme not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      }),
-    );
+  it("maps connect not found responses to ApiNotFoundError", async () => {
+    vi.spyOn(rpcClients, "createThemeServiceClient").mockReturnValue({
+      listThemes: vi.fn(),
+      getTheme: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("Theme not found", Code.NotFound)),
+    } as ReturnType<typeof rpcClients.createThemeServiceClient>);
 
     await expect(
       liveContentApi.getThemeDetail("missing"),
     ).rejects.toBeInstanceOf(ApiNotFoundError);
   });
 
-  it("maps server errors to ApiRequestError", async () => {
-    // 非 404 は request error に畳み、画面ごとに status 判定を書かずに済ませる。
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ message: "Internal error" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }),
-    );
+  it("maps connect server errors to ApiRequestError", async () => {
+    vi.spyOn(rpcClients, "createArticleServiceClient").mockReturnValue({
+      listArticles: vi.fn(),
+      getArticle: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("Internal error", Code.Internal)),
+    } as ReturnType<typeof rpcClients.createArticleServiceClient>);
 
-    await expect(fetchJson("/api/themes")).rejects.toMatchObject({
+    await expect(
+      liveContentApi.getArticleDetail("se-001"),
+    ).rejects.toMatchObject({
       name: "ApiRequestError",
       status: 500,
       message: "Internal error",
     });
   });
 
-  it("fails when the response body is not valid JSON", async () => {
-    // 200 でも payload が壊れていれば request error 扱いにする契約を守る。
+  it("composes theme detail from theme metadata and article list", async () => {
+    vi.spyOn(rpcClients, "createThemeServiceClient").mockReturnValue({
+      listThemes: vi.fn(),
+      getTheme: vi.fn().mockResolvedValue({
+        theme: {
+          slug: "software-engineering",
+          name: "Software Engineering",
+          description: "desc",
+          articleCount: 1,
+        },
+      }),
+    } as ReturnType<typeof rpcClients.createThemeServiceClient>);
+    vi.spyOn(rpcClients, "createArticleServiceClient").mockReturnValue({
+      getArticle: vi.fn(),
+      listArticles: vi.fn().mockResolvedValue({
+        articles: [
+          {
+            id: "se-001",
+            themeSlug: "software-engineering",
+            title: "Title",
+            summary: "Summary",
+            sourceUrl: "https://reddit.com/se-001",
+            publishedAt: { seconds: 1n, nanos: 0 },
+            stanceLabel: "運用改善",
+            pointCount: 4,
+          },
+        ],
+        nextPageToken: "",
+      }),
+    } as ReturnType<typeof rpcClients.createArticleServiceClient>);
+
+    await expect(
+      liveContentApi.getThemeDetail("software-engineering"),
+    ).resolves.toMatchObject({
+      slug: "software-engineering",
+      articleCount: 1,
+      articles: [
+        {
+          id: "se-001",
+          pointCount: 4,
+        },
+      ],
+    });
+  });
+
+  it("includes the admin token header for admin REST calls", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await liveContentApi.getAdminJobs();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://example.test/api/admin/jobs",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          "X-Admin-Token": "secret-token",
+        }),
+      }),
+    );
+  });
+
+  it("requires a base url in live mode", async () => {
+    delete process.env.CONTENT_API_BASE_URL;
+    vi.spyOn(rpcClients, "createThemeServiceClient");
+
+    await expect(liveContentApi.getThemes()).rejects.toThrow(
+      "CONTENT_API_BASE_URL is required when CONTENT_API_MODE=live.",
+    );
+  });
+
+  it("fails when the admin REST response body is not valid JSON", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("not-json", {
         status: 200,
@@ -89,18 +180,8 @@ describe("live content api", () => {
       }),
     );
 
-    await expect(fetchJson<Theme[]>("/api/themes")).rejects.toBeInstanceOf(
+    await expect(fetchJson("/api/admin/jobs")).rejects.toBeInstanceOf(
       ApiRequestError,
-    );
-  });
-
-  it("requires a base url in live mode", async () => {
-    // live 実装の設定漏れを早期に検知し、空 URL での fetch を許さない。
-    delete process.env.CONTENT_API_BASE_URL;
-    vi.spyOn(globalThis, "fetch");
-
-    await expect(fetchJson("/api/themes")).rejects.toThrow(
-      "CONTENT_API_BASE_URL is required when CONTENT_API_MODE=live.",
     );
   });
 });
