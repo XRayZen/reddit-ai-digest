@@ -2,6 +2,9 @@
 
 技術系 Reddit 議論を収集し、AI で翻訳・要約して、テーマ別に読めるニュースサイト風サービスを構築するモノレポです。
 
+<img width="2520" height="2052" alt="image" src="https://github.com/user-attachments/assets/e0144e88-cdc5-4c80-a552-bb4fd180a3e3" />
+
+
 ---
 
 ## 概要
