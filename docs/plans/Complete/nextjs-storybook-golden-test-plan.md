@@ -80,7 +80,7 @@ ls apps/web/tests/golden/storybook.visual.spec.ts-snapshots/
 # => 9ファイルの PNG
 
 # CI workflow
-cat .github/workflows/web-ui.yml
+cat .github/workflows/ci-web.yml
 # => lint/typecheck/vitest/build-storybook/test:golden:web 定義済み
 ```
 

@@ -1,0 +1,160 @@
+# =============================================================================
+# Backend CI ワークフロー
+# =============================================================================
+# 目的: Go 製バックエンド(api/worker)の品質チェック
+# 対象: コード検証、Proto スキーマ検証、マイグレーション検証
+# =============================================================================
+
+name: ci-backend
+
+# =============================================================================
+# トリガー条件
+# =============================================================================
+# - PR: バックエンド関連コード変更時
+# - Push: main/develop ブランチへのマージ時
+# =============================================================================
+on:
+  pull_request:
+    paths:
+      # バックエンドアプリケーション
+      - "apps/api/**"
+      - "apps/worker/**"
+      # 共有 Go モジュール
+      - "internal/**"
+      # Protocol Buffers 定義（変更時はコード生成も検証）
+      - "packages/proto/**"
+      # ドキュメント（開発手順変更時も CI を回す）
+      - "docs/architecture/**"
+      - "docs/operations/local-development.md"
+      - "docs/adr/architecture-decisions.md"
+      # CI 設定
+      - ".github/workflows/ci-backend.yml"
+      # 依存関係ファイル
+      - "go.mod"
+      - "go.sum"
+      - "buf.yaml"
+      - "buf.gen.yaml"
+      - "Makefile"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  push:
+    branches:
+      - main
+      - develop
+    paths:      # PR と同じパスを監視
+      - "apps/api/**"
+      - "apps/worker/**"
+      - "internal/**"
+      - "packages/proto/**"
+      - "docs/architecture/**"
+      - "docs/operations/local-development.md"
+      - "docs/adr/architecture-decisions.md"
+      - ".github/workflows/ci-backend.yml"
+      - "go.mod"
+      - "go.sum"
+      - "buf.yaml"
+      - "buf.gen.yaml"
+      - "Makefile"
+      - "package.json"
+      - "pnpm-lock.yaml"
+
+# =============================================================================
+# ジョブ定義
+# =============================================================================
+jobs:
+  ci-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20  # ステップが失敗しても 20 分でタイムアウト
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: reddit_ai_digest
+          MYSQL_USER: app
+          MYSQL_PASSWORD: app
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uapp -papp --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+          --health-start-period=20s
+
+    steps:
+      # -------------------------------------------------------------------------
+      # 環境セットアップ
+      # -------------------------------------------------------------------------
+      - uses: actions/checkout@v4
+        with:
+          # Buf breaking が比較対象 branch を解決できるように shallow clone を避ける。
+          fetch-depth: 0
+
+      # pnpm をセットアップ（Node.js より先に実行する必要あり）
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      # Node.js をセットアップ（pnpm キャッシュ有効）
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      # Corepack 有効化（pnpm を使用するため）
+      - name: Enable Corepack
+        run: corepack enable
+
+      # 依存関係インストール（frozen-lockfile で lock ファイルの変更を防止）
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      # Go をセットアップ（go.mod のバージョンを使用、ビルドキャッシュ有効）
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # -------------------------------------------------------------------------
+      # Protocol Buffers 検証
+      # -------------------------------------------------------------------------
+      # スタイルチェック（lint 違反がないか確認）
+      - name: Buf lint
+        run: corepack pnpm proto:lint
+
+      # 後方互換性チェック（PR 時のみ実行）
+      # main ブランチの proto に対して破壊的変更がないか検証
+      - name: Buf breaking
+        if: github.event_name == 'pull_request'
+        run: corepack pnpm proto:breaking
+
+      # コード生成（生成結果がコミット済みと一致するか確認）
+      - name: Regenerate proto code
+        run: corepack pnpm proto:generate
+
+      # 生成コードがコミットされているか検証
+      # ここで差分がある場合、開発者が proto:generate の結果をコミットし忘れている
+      - name: Check generated code is committed
+        run: git diff --exit-code
+
+      # -------------------------------------------------------------------------
+      # Go テスト
+      # -------------------------------------------------------------------------
+      - name: Run Go tests
+        run: corepack pnpm test:go
+
+      # -------------------------------------------------------------------------
+      # マイグレーション検証
+      # -------------------------------------------------------------------------
+      # マイグレーションとシードが正常に実行できるか検証
+      # 本番と同じ MySQL 方言で流し、SQLite 互換層だけを通る偽陽性を避ける。
+      - name: Validate migrations
+        env:
+          DATABASE_DRIVER: mysql
+          DATABASE_DSN: app:app@tcp(127.0.0.1:3306)/reddit_ai_digest?parseTime=true&multiStatements=true
+        run: |
+          corepack pnpm migrate:api
+          corepack pnpm seed:api

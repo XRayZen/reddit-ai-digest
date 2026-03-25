@@ -99,17 +99,39 @@
 
 ```bash
 cp infra/compose/.env.example infra/compose/.env
-make up
+make compose-config
+docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env up -d --build mysql
 make migrate
 make seed
-make test
+docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env up -d web api worker
+make test-go
 ```
+
+Compose 標準導線:
+
+```bash
+cp infra/compose/.env.example infra/compose/.env
+make compose-config
+make migrate
+make seed
+make up
+make ps
+make logs
+```
+
+補足:
+- DB は MySQL を唯一の正本とし、migration と seed も MySQL に対して実行する
+- `make migrate` と `make seed` は Compose の one-off service を呼び出す
+- 初回初期化をやり直す場合は `docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env down -v` を使う
+- 公開 read API は Connect、管理操作は REST で確認する
+- 管理 REST を叩くときは `X-Admin-Token: local-admin-token` を付ける
 
 補足:
 
 - 実際のコマンド名は将来の `Makefile` 実装に合わせる
 - `.env` には API キーや DB 接続情報など、ローカルに必要な最小値のみを入れる
 - 初回セットアップ手順は README と重複させすぎず、開発運用の観点に寄せる
+- Web の実 API 接続先は `NEXT_PUBLIC_*` ではなく `CONTENT_API_BASE_URL` に閉じ込める
 
 ---
 

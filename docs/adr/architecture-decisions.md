@@ -239,6 +239,104 @@ API、Worker、外部 LLM 呼び出しをまたぐ処理が多い。
 ## 決定
 `trace_id` を最重要の相関キーとする。
 
+API 境界で `trace_id` が未指定なら新規発行し、
+HTTP / Connect / Worker / job_execution に同じ相関キーを引き回す。
+
+## 影響
+### 利点
+- API と Worker をまたいだ調査開始点を固定できる
+- 管理 REST と Connect read API を同じ相関軸で追える
+- `job_execution` とログを `trace_id` で結びやすい
+
+### 欠点
+- middleware、repository、job 記録で文脈伝播を意識する必要がある
+
+---
+
+# ADR-0007: 公開 read API の接続方式に Connect を採用する
+
+## ステータス
+採用
+
+## コンテキスト
+主処理は gRPC 系契約を proto 正本で維持したい一方で、
+`apps/web` はブラウザ互換と TypeScript クライアント生成の扱いやすさが必要である。
+
+## 決定
+公開 read API は `Connect` を採用する。
+
+- proto を契約正本にする
+- Go 側は Connect-Go handler を使う
+- Web 側は generated TS client を Server Components から呼ぶ
+- 公開 read のための REST endpoint は追加しない
+
+## 影響
+### 利点
+- gRPC / gRPC-Web 互換を保ちながら Web 接続を単純化できる
+- generated TS client を `apps/web/src/lib/api` の facade 内に閉じ込められる
+- REST を増やさず proto 正本方針を維持できる
+
+### 欠点
+- Web 側に Connect runtime の導入が必要
+- local / CI で proto codegen と runtime version 整合が必要になる
+
+---
+
+# ADR-0008: DB schema は SQL migration 管理とし、repository 実装は GORM を使う
+
+## ステータス
+採用
+
+## コンテキスト
+初期 read 系では query の明示性とローカル開発速度の両立が必要である。
+一方で schema の正本を ORM の自動生成へ寄せると migration 差分を追いにくい。
+
+## 決定
+- schema 変更は SQL migration を正本にする
+- GORM AutoMigrate は使わない
+- repository 実装では GORM を使う
+- query は `Select` / `Joins` / `Order` を明示して repo に閉じ込める
+
+## 影響
+### 利点
+- schema 差分と query 差分を別々にレビューできる
+- 初期実装では GORM の組み立て速度を使える
+- domain / usecase から ORM を隔離できる
+
+### 欠点
+- SQL migration と GORM model の二重管理が必要
+- repository で query を明示的に保つ discipline が必要
+
+---
+
+# ADR-0009: 管理 REST は静的トークンで保護する
+
+## ステータス
+採用
+
+## コンテキスト
+MVP 初期段階では本格認証基盤が未実装だが、
+管理ジョブの enqueue を無保護で公開したくない。
+
+## 決定
+管理 REST は `ADMIN_API_TOKEN` と `X-Admin-Token` で保護する。
+
+- `GET /api/admin/jobs`
+- `POST /api/admin/ingestions/run`
+- `POST /api/admin/summaries/rerun`
+
+POST は idempotency key を要求する。
+
+## 影響
+### 利点
+- 認証基盤未整備でも管理 API を最低限保護できる
+- local / CI でも再現しやすい
+- audit log と組み合わせやすい
+
+### 欠点
+- 権限分離やユーザー単位監査は後段実装になる
+- token 配布と rotation は運用で補う必要がある
+
 以下を基本方針とする。
 - API / Worker / LLM 呼び出しで trace_id を引き回す
 - CloudWatch Logs に構造化ログを出す
