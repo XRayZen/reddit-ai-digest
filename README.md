@@ -223,6 +223,30 @@
 4. `docs/development/coding-rules-common.md`
 5. `docs/operations/local-development.md`
 
+---
+
+## ローカル起動
+
+標準導線は Docker Compose です。
+
+```bash
+cp infra/compose/.env.example infra/compose/.env
+make compose-config
+docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env up -d --build mysql
+make migrate
+make seed
+docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env up -d web api worker
+```
+
+確認先:
+- `http://127.0.0.1:3000`
+- `http://127.0.0.1:8080/healthz`
+
+補足:
+- Web は `CONTENT_API_BASE_URL` を server-side env として読み、Compose 内では `http://api:8080` に接続する
+- MySQL volume が残っていると `.env` の初期化値を変えても再初期化されない
+- 詳細手順は `docs/operations/local-development.md` と `infra/compose/README.md` を参照する
+
 ### フロントエンドを触るとき
 1. `docs/development/coding-rules-common.md`
 2. `docs/development/coding-rules-frontend.md`
@@ -267,10 +291,10 @@ API 通信をモックで置き換えて UI を先に進めてもよいです。
 
 ```bash
 cp infra/compose/.env.example infra/compose/.env
-make up
 make migrate
 make seed
-make test
+make up
+make test-go
 ```
 
 ローカル開発の詳細は `docs/operations/local-development.md` を参照してください。
@@ -354,11 +378,3 @@ AI エージェントと人間の両方が同じ文書体系で開発できる�
 - ベクトル検索
 - 管理画面強化
 - article view 最適化
-
-# メモ
-これを見て各ドキュメントを保存して
-内容は削らず、補完もして
-
-このWebにshadcnを導入する
-Skillsはすでに導入済み(Webフォルダ直下のフォルダにある）
-

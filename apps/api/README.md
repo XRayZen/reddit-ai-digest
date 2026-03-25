@@ -84,3 +84,20 @@ gRPC 主体の API サーバーと
 - `trace_id` とログ文脈が確認できる
 - 必要な docs 更新がある
 - セルフレビュー済みである
+
+---
+
+## ローカル起動
+
+標準導線は root の Compose です。
+
+```bash
+cp infra/compose/.env.example infra/compose/.env
+make migrate
+docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env up -d api
+```
+
+補足:
+- `DATABASE_DRIVER` は `mysql` を標準とする
+- `DATABASE_DSN` は Compose 内では `mysql:3306` を向く
+- health check は `http://127.0.0.1:8080/healthz` で確認できる

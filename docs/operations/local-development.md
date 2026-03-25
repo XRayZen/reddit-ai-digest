@@ -125,6 +125,7 @@ make logs
 - 初回初期化をやり直す場合は `docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env down -v` を使う
 - 公開 read API は Connect、管理操作は REST で確認する
 - 管理 REST を叩くときは `X-Admin-Token: local-admin-token` を付ける
+- migration の正当性確認は unit test ではなく、この Compose 導線や統合テスト / E2E で行う
 
 補足:
 

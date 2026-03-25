@@ -107,6 +107,8 @@ Go / gRPC / Worker / DB / 可観測性の実装ルールを定義する。
 - バグ修正時は再発防止テストを追加する
 - 外部 API は adapter 境界で扱い、必要なら stub / mock を使う
 - 冪等性や失敗系も確認する
+- unit test では migration の適用確認まで背負わず、必要最小限の schema / stub を各テストで用意する
+- migration の実行確認は統合テストまたは E2E で行う
 
 ---
 

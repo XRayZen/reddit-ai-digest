@@ -73,7 +73,18 @@ Next.js フロントエンドです。
 
 ## セットアップ
 
-最小構成のフロントエンドは `apps/web` 単体で起動できる。
+最小構成のフロントエンドは `apps/web` 単体でも起動できるが、標準導線は root の Docker Compose で実 API に接続する構成とする。
+
+Compose 標準導線:
+
+```bash
+cp infra/compose/.env.example infra/compose/.env
+docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env up -d --build web api mysql
+```
+
+Web は `CONTENT_API_MODE=live` と `CONTENT_API_BASE_URL=http://api:8080` を server-side env として受け取り、browser には内部 service 名を露出しない。
+
+単体起動:
 
 ```bash
 corepack pnpm install
