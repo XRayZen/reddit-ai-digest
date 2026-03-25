@@ -20,7 +20,7 @@
 #
 # 【設計意図】
 #   - ローカル開発環境での実行を前提としている
-#   - CI (.github/workflows/web-ui.yml) では同等のコマンドを個別に実行
+#   - CI (.github/workflows/ci-web.yml) では同等のコマンドを個別に実行
 #   - CONTENT_API_MODE 環境変数により、API モードを制御（デフォルト: mock）
 #   - 各ステップの進捗が分かりよう "==> ラベル" 形式で出力
 #
