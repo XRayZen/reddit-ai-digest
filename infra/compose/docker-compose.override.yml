@@ -1,0 +1,10 @@
+services:
+  # override 側にはローカル開発固有の bind mount だけを寄せ、
+  # base compose を CI や再現用途でも流用しやすくする。
+  migrate:
+    volumes:
+      - ../..:/workspace
+
+  seed:
+    volumes:
+      - ../..:/workspace
