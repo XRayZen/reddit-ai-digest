@@ -53,6 +53,11 @@ go.work
 /bin/
 /tmp/
 
+# Build outputs
+/api/
+/internal/
+/worker/
+
 # Terraform
 *.tfstate
 *.tfstate.*
