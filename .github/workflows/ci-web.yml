@@ -1,31 +1,44 @@
-name: web-ui
+# =============================================================================
+# Web UI CI ワークフロー
+# =============================================================================
+# 目的: Next.js フロントエンドの品質チェック（Lint / 型検査 / 単体テスト / Visual Regression / E2E）
+# 特徴: すべてのチェックを並行実行し、最後に結果を集約して PR summary に表示
+#       どのチェックが失敗しても artifact 回収を確実に行う設計
+# =============================================================================
 
+name: ci-web
+
+# =============================================================================
+# トリガー条件
+# =============================================================================
+# - PR: Web UI 関連コード変更時
+# - Push: main/develop ブランチへのマージ時
+# =============================================================================
 on:
   pull_request:
     paths:
       # Web UI の実行結果に影響する入力だけを対象にして、無関係な PR での実行を避ける。
       - "apps/web/**"
-      - "docs/operations/local-development.md"
-      - "docs/plans/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
-      - ".github/workflows/web-ui.yml"
+      - ".github/workflows/ci-web.yml"
   push:
     branches:
       - main
       - develop
     paths:
       - "apps/web/**"
-      - "docs/operations/local-development.md"
-      - "docs/plans/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
-      - ".github/workflows/web-ui.yml"
+      - ".github/workflows/ci-web.yml"
 
+# =============================================================================
+# ジョブ定義
+# =============================================================================
 jobs:
-  web-ui:
+  ci-web:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:
@@ -34,6 +47,9 @@ jobs:
       options: --user 1001 --ipc=host
 
     steps:
+      # -------------------------------------------------------------------------
+      # 環境セットアップ
+      # -------------------------------------------------------------------------
       - uses: actions/checkout@v4
 
       - name: Setup pnpm
@@ -55,14 +71,27 @@ jobs:
       - name: Install dependencies
         run: corepack pnpm install --frozen-lockfile
 
+      # -------------------------------------------------------------------------
+      # キャッシュ復元
+      # -------------------------------------------------------------------------
       - name: Restore Next.js build cache
         uses: actions/cache@v4
         with:
           # E2E の production build を高速化するため、Next.js の filesystem cache を共有する。
           path: apps/web/.next/cache
-          key: ${{ runner.os }}-nextjs-web-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/**/*.ts', 'apps/web/**/*.tsx', 'apps/web/**/*.js', 'apps/web/**/*.jsx', 'apps/web/**/*.mjs', 'apps/web/**/*.css', 'apps/web/**/*.json') }}
+          # ソースコード差分では key を変えず、lockfile と build 設定だけで cache を更新する。
+          # これにより通常の UI 実装変更では既存 cache を継続利用し、CI の build 時間を縮める。
+          key: ${{ runner.os }}-nextjs-web-${{ hashFiles('pnpm-lock.yaml', 'apps/web/next.config.ts', 'apps/web/tsconfig.json', 'apps/web/postcss.config.mjs') }}
           restore-keys: |
-            ${{ runner.os }}-nextjs-web-${{ hashFiles('pnpm-lock.yaml') }}-
+            # lockfile か設定変更で完全一致が外れても、同 OS の近い cache を再利用できるようにする。
+            ${{ runner.os }}-nextjs-web-
+
+      # -------------------------------------------------------------------------
+      # 品質チェック（並行実行）
+      # -------------------------------------------------------------------------
+      # 設計方針: すべて continue-on-error: true で実行し、失敗時にジョブを終了させない
+      #           → 他のチェック結果も同時に確認できる
+      #           → 最後に集約してジョブ全体の成否を決定する
 
       - name: Lint
         id: lint
@@ -82,6 +111,9 @@ jobs:
         continue-on-error: true
         run: corepack pnpm test:web
 
+      # -------------------------------------------------------------------------
+      # Visual Regression テスト
+      # -------------------------------------------------------------------------
       - name: Build Storybook
         id: build_storybook
         # build の可否を summary に載せたいので、ここでは即終了させず outcome を後段で集約する。
@@ -95,12 +127,18 @@ jobs:
         # 直前の build 成果物をそのまま使い、Storybook の二重起動と再 build を避ける。
         run: corepack pnpm --filter @reddit-ai-digest/web test:golden:prebuilt
 
+      # -------------------------------------------------------------------------
+      # E2E テスト
+      # -------------------------------------------------------------------------
       - name: Playwright E2E tests
         id: e2e_tests
         # 導線回帰の失敗時も summary と artifact 回収を確実に行うため、最後まで job を進める。
         continue-on-error: true
         run: corepack pnpm test:e2e:web
 
+      # -------------------------------------------------------------------------
+      # 結果集約
+      # -------------------------------------------------------------------------
       - name: Write job summary
         if: always()
         env:
@@ -113,9 +151,12 @@ jobs:
         # 各 step の outcome を 1 か所へ集約し、PR の summary から失敗箇所を即判断できるようにする。
         run: bash .github/scripts/write-web-ui-summary.sh
 
+      # -------------------------------------------------------------------------
+      # アーティファクト回収
+      # -------------------------------------------------------------------------
       - name: Upload visual artifacts
         # テスト失敗時のスクリーンショットや HTML report を必ず回収して原因調査をしやすくする。
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: web-ui-artifacts
@@ -125,6 +166,9 @@ jobs:
             apps/web/playwright-report
             apps/web/test-results
 
+      # -------------------------------------------------------------------------
+      # ジョブ成否の最終判定
+      # -------------------------------------------------------------------------
       - name: Fail job if checks failed
         # summary 出力と artifact 回収を終えたあとで、job 全体の成否だけを元の期待どおり failure に戻す。
         if: ${{ always() && (steps.lint.outcome == 'failure' || steps.typecheck.outcome == 'failure' || steps.unit_tests.outcome == 'failure' || steps.build_storybook.outcome == 'failure' || steps.golden_tests.outcome == 'failure' || steps.e2e_tests.outcome == 'failure') }}

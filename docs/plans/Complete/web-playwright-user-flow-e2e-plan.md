@@ -11,7 +11,7 @@
 
 - `apps/web/package.json` にはすでに `@playwright/test` が入り、`test:golden` は `playwright.storybook.config.ts` 経由で Storybook snapshot を比較している。
 - `apps/web/scripts/check-all-local.sh` は typecheck、lint、Vitest、Storybook build、golden、format までを回すが、Next.js 実画面の導線 E2E は実行していない。
-- `.github/workflows/web-ui.yml` でも Chromium を入れて Storybook golden を回しているが、ページ遷移を含む品質ゲートは存在しない。
+- `.github/workflows/ci-web.yml` でも Chromium を入れて Storybook golden を回しているが、ページ遷移を含む品質ゲートは存在しない。
 - `Browser Use` は `apps/web/scripts/browser-use-local.sh` と `apps/web/test-scenarios/browser-use-cli.md` で整備済みだが、固定回帰テストではなく確認用の位置づけである。
 
 ## Decision Notes
@@ -89,7 +89,7 @@
 
 ### 5. CI への統合
 
-- `.github/workflows/web-ui.yml` に Playwright E2E 実行を追加する。
+- `.github/workflows/ci-web.yml` に Playwright E2E 実行を追加する。
 - Chromium 導入は現状の step を流用しつつ、Storybook golden と E2E の両方に使う。
 - 失敗時 artifact は以下を含める。
   - `apps/web/playwright-report`
@@ -134,7 +134,7 @@
 
 - `apps/web` に Storybook 用とは別の Playwright E2E 設定とテスト群が追加されている。
 - mock API 前提で主要導線のページ遷移回帰を自動検知できる。
-- `apps/web/scripts/check-all-local.sh` と `.github/workflows/web-ui.yml` から E2E が実行される。
+- `apps/web/scripts/check-all-local.sh` と `.github/workflows/ci-web.yml` から E2E が実行される。
 - ドキュメントにローカル実行手順と役割分担が追記されている。
 - `docs/adr/architecture-decisions.md` に Playwright 導線 E2E 導入の判断が記録されている。
 
@@ -158,7 +158,7 @@
 - `apps/web/tests/e2e/user-flow.spec.ts` - 主要導線シナリオ実装
 - `apps/web/package.json` - E2E 実行スクリプト追加
 - `apps/web/scripts/check-all-local.sh` - ローカル品質ゲート統合
-- `.github/workflows/web-ui.yml` - CI 統合
+- `.github/workflows/ci-web.yml` - CI 統合
 - `apps/web/README.md` - ドキュメント更新
 - `docs/operations/local-development.md` - ドキュメント更新
 - `docs/adr/architecture-decisions.md` - ADR-0011 追記

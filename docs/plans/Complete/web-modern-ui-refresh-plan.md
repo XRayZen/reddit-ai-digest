@@ -331,3 +331,47 @@
 - Motion `useReducedMotion`: https://motion.dev/docs/react-use-reduced-motion
 - Tailwind dark mode: https://tailwindcss.com/docs/dark-mode
 - Next.js accessibility: https://nextjs.org/docs/architecture/accessibility
+
+## Completion Record
+
+- 完了日: 2026-03-25
+- 対象範囲:
+  - dark-first theme 基盤
+  - scroll progress / reveal 基盤
+  - Home / Theme Detail / Article Detail / Admin の UI refresh
+  - Storybook / golden / E2E による回帰確認
+- 完了判定の理由:
+  - `next-themes` による dark-first 構成が [apps/web/src/app/layout.tsx](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/src/app/layout.tsx) と [apps/web/src/components/theme-provider.tsx](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/src/components/theme-provider.tsx) に反映されている
+  - トークン刷新が [apps/web/src/app/globals.css](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/src/app/globals.css) に反映されている
+  - `Reveal` / `ScrollProgress` が [apps/web/src/components/reveal.tsx](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/src/components/scroll-progress.tsx) に実装されている
+  - 主要 4 画面の刷新が [apps/web/src/features/home/components/home-screen.tsx](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/src/features/home/components/home-screen.tsx), [apps/web/src/features/themes/components/theme-detail-client.tsx](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/src/features/themes/components/theme-detail-client.tsx), [apps/web/src/features/articles/components/article-detail-view.tsx](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/src/features/articles/components/article-detail-view.tsx), [apps/web/src/features/admin/components/admin-dashboard.tsx](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/src/features/admin/components/admin-dashboard.tsx) に反映されている
+  - `apps/web` の一括品質チェックが通過した
+
+## Verification Record
+
+- 実施日: 2026-03-25
+- 実行コマンド:
+  - `./apps/web/scripts/check-all-local.sh`
+- 検証結果:
+  - `typecheck`: pass
+  - `lint`: pass
+  - `test`: 12 files / 38 tests pass
+  - `test:storybook`: pass
+  - `test:golden`: 9 pass
+  - `test:e2e`: 3 pass
+  - `format`: pass
+- 補足:
+  - 一度目の実行では [apps/web/src/lib/api/live-content-api.ts](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/src/lib/api/live-content-api.ts) と [apps/web/tests/live-content-api.test.ts](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/tests/live-content-api.test.ts) の `Prettier` 差分で停止した
+  - 上記 2 ファイルは整形のみを適用し、再実行で完走した
+  - Storybook build 時に `unable to find package.json for radix-ui` と chunk size warning は出るが、今回の完了判定では build / test の失敗要因ではなかった
+
+## Self Review Record
+
+- 実施日: 2026-03-25
+- 確認内容:
+  - 計画書内の「未導入」前提記述と実装済み記述が混在していたため、完了判定は文書本文ではなく実装実態と検証結果を優先した
+  - `ThemeDetailClient` の control が `shadcn` `Select` に置き換わっていることを確認した
+  - reduced motion 前提の E2E / golden が維持されていることを確認した
+  - このターンで行ったコード変更は [apps/web/src/lib/api/live-content-api.ts](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/src/lib/api/live-content-api.ts) と [apps/web/tests/live-content-api.test.ts](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/tests/live-content-api.test.ts) の整形のみで、ロジック変更は加えていない
+- 引き継ぎ:
+  - Storybook build の warning は残っているため、将来 CI ノイズを減らすなら別タスクで扱う

@@ -200,13 +200,11 @@ REST は管理系中心とする。
 - 必要に応じて BFF / gateway を利用する
 - 管理画面の簡易操作は REST を利用可能とする
 
-実装候補:
-- gRPC-Web
-- Connect
-- gRPC-Gateway
-- BFF 経由
-
-採用方針は別 ADR で決定する。
+採用方針:
+- 公開 read API は `Connect` を採用する
+- サーバーは Connect / gRPC / gRPC-Web を同一 handler で提供する
+- `apps/web` は Server Components から Connect client を使って read 系を呼ぶ
+- 管理用途は REST を維持する
 
 検討観点:
 - ブラウザ互換性
@@ -214,6 +212,18 @@ REST は管理系中心とする。
 - 認証、CORS、Cookie、CSRF の整理しやすさ
 - CDN やエッジ配信との相性
 - 将来の公開 API 境界をどう切るか
+
+現時点の実装メモ:
+- public read:
+  - `ThemeService`
+  - `ArticleService`
+- admin REST:
+  - `GET /api/admin/jobs`
+  - `POST /api/admin/ingestions/run`
+  - `POST /api/admin/summaries/rerun`
+- health:
+  - `GET /healthz`
+- 管理 REST は `X-Admin-Token` を前提に保護する
 
 ---
 
