@@ -19,7 +19,7 @@ func TestContentReadEndpoints(t *testing.T) {
 
 	testCases := []scenarioCase{
 		{
-			name: "ListThemes returns the seeded page and next token",
+			name: "テーマ一覧でシードデータと次ページトークンが返る",
 			run: func(t *testing.T) {
 				ctx, cancel := newScenarioContext(t)
 				defer cancel()
@@ -68,7 +68,7 @@ func TestContentReadEndpoints(t *testing.T) {
 			},
 		},
 		{
-			name: "GetTheme returns the seeded detail",
+			name: "テーマ詳細でシードデータが返る",
 			run: func(t *testing.T) {
 				ctx, cancel := newScenarioContext(t)
 				defer cancel()
@@ -96,7 +96,7 @@ func TestContentReadEndpoints(t *testing.T) {
 			},
 		},
 		{
-			name: "ListArticles returns the latest seeded summaries",
+			name: "記事一覧で最新のシード要約が返る",
 			run: func(t *testing.T) {
 				ctx, cancel := newScenarioContext(t)
 				defer cancel()
@@ -139,7 +139,7 @@ func TestContentReadEndpoints(t *testing.T) {
 			},
 		},
 		{
-			name: "GetArticle returns the seeded detail payload",
+			name: "記事詳細でシードデータのペイロードが返る",
 			run: func(t *testing.T) {
 				ctx, cancel := newScenarioContext(t)
 				defer cancel()

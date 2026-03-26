@@ -28,6 +28,7 @@ COPY --from=builder /out/api /usr/local/bin/api
 COPY --from=builder /out/migrate /usr/local/bin/migrate
 COPY --from=builder /out/seed /usr/local/bin/seed
 COPY --from=builder /workspace/apps/api/migrations /app/apps/api/migrations
+COPY --from=builder /workspace/apps/api/seeds /app/apps/api/seeds
 
 USER appuser
 

@@ -22,7 +22,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := migrate.ApplyDir(context.Background(), sqlDB, "apps/api/migrations", cfg.DatabaseDriver); err != nil {
+	if err := migrate.ApplyDir(context.Background(), sqlDB, "apps/api/sql/migrations", cfg.DatabaseDriver); err != nil {
 		log.Fatal(err)
 	}
 }

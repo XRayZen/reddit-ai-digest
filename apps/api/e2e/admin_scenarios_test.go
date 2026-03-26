@@ -18,7 +18,7 @@ func TestAdminEndpoints(t *testing.T) {
 
 	testCases := []scenarioCase{
 		{
-			name: "ListJobs returns seeded jobs",
+			name: "ジョブ一覧でシードジョブが返る",
 			run: func(t *testing.T) {
 				ctx, cancel := newScenarioContext(t)
 				defer cancel()
@@ -37,20 +37,21 @@ func TestAdminEndpoints(t *testing.T) {
 			},
 		},
 		{
-			name: "RunIngestion enqueues a queued job and keeps trace id",
+			name: "収集ジョブ実行でキュー登録とtrace_idが保持される",
 			run: func(t *testing.T) {
 				ctx, cancel := newScenarioContext(t)
 				defer cancel()
 
 				traceID := traceutil.NewID()
-				idempotencyKey := fmt.Sprintf("api-e2e-ingest-%d", time.Now().UnixNano())
-				registerJobCleanup(t, suite, idempotencyKey)
+				rawIdempotencyKey := fmt.Sprintf("api-e2e-ingest-%d", time.Now().UnixNano())
+				scopedKey := scopedJobIdempotencyKey(adminv1.JobType_JOB_TYPE_INGEST, "software-engineering", rawIdempotencyKey)
+				registerJobCleanup(t, suite, scopedKey)
 
 				// REST 応答と永続化結果の両方で、enqueue された job のメタデータを確認する。
 				resp, headers, err := suite.adminClient.queueIngestion(ctx, traceID, runJobRequest{
 					ThemeSlug:      "software-engineering",
 					RequestedBy:    "api-e2e",
-					IdempotencyKey: idempotencyKey,
+					IdempotencyKey: rawIdempotencyKey,
 				})
 				if err != nil {
 					t.Fatalf("queue ingestion: %v", err)
@@ -65,7 +66,7 @@ func TestAdminEndpoints(t *testing.T) {
 					t.Fatalf("trace header = %q, want %q", headers.Get(traceutil.HeaderTraceID), traceID)
 				}
 
-				dbRow, err := loadJobExecutionByIdempotencyKey(ctx, suite.db, idempotencyKey)
+				dbRow, err := loadJobExecutionByIdempotencyKey(ctx, suite.db, scopedKey)
 				if err != nil {
 					t.Fatalf("load queued ingestion job: %v", err)
 				}
@@ -84,22 +85,26 @@ func TestAdminEndpoints(t *testing.T) {
 				if dbRow.RequestedBy != "api-e2e" || dbRow.TraceID != traceID {
 					t.Fatalf("queued ingestion metadata mismatch")
 				}
+				if dbRow.IdempotencyKey != scopedKey {
+					t.Fatalf("queued ingestion idempotency key = %q, want %q", dbRow.IdempotencyKey, scopedKey)
+				}
 			},
 		},
 		{
-			name: "RunResummarization enqueues a queued job and keeps trace id",
+			name: "再要約ジョブ実行でキュー登録とtrace_idが保持される",
 			run: func(t *testing.T) {
 				ctx, cancel := newScenarioContext(t)
 				defer cancel()
 
 				traceID := traceutil.NewID()
-				idempotencyKey := fmt.Sprintf("api-e2e-resummary-%d", time.Now().UnixNano())
-				registerJobCleanup(t, suite, idempotencyKey)
+				rawIdempotencyKey := fmt.Sprintf("api-e2e-resummary-%d", time.Now().UnixNano())
+				scopedKey := scopedJobIdempotencyKey(adminv1.JobType_JOB_TYPE_RESUMMARIZE, "se-001", rawIdempotencyKey)
+				registerJobCleanup(t, suite, scopedKey)
 
 				resp, headers, err := suite.adminClient.queueResummarization(ctx, traceID, runJobRequest{
 					ArticleID:      "se-001",
 					RequestedBy:    "api-e2e",
-					IdempotencyKey: idempotencyKey,
+					IdempotencyKey: rawIdempotencyKey,
 				})
 				if err != nil {
 					t.Fatalf("queue resummarization: %v", err)
@@ -114,7 +119,7 @@ func TestAdminEndpoints(t *testing.T) {
 					t.Fatalf("trace header = %q, want %q", headers.Get(traceutil.HeaderTraceID), traceID)
 				}
 
-				dbRow, err := loadJobExecutionByIdempotencyKey(ctx, suite.db, idempotencyKey)
+				dbRow, err := loadJobExecutionByIdempotencyKey(ctx, suite.db, scopedKey)
 				if err != nil {
 					t.Fatalf("load queued resummarization job: %v", err)
 				}
@@ -132,6 +137,9 @@ func TestAdminEndpoints(t *testing.T) {
 				}
 				if dbRow.RequestedBy != "api-e2e" || dbRow.TraceID != traceID {
 					t.Fatalf("queued resummarization metadata mismatch")
+				}
+				if dbRow.IdempotencyKey != scopedKey {
+					t.Fatalf("queued resummarization idempotency key = %q, want %q", dbRow.IdempotencyKey, scopedKey)
 				}
 			},
 		},

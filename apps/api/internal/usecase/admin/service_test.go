@@ -82,3 +82,21 @@ func TestQueueAllowsDifferentTargetsWithSameIdempotencyKey(t *testing.T) {
 		t.Fatalf("expected enqueue order to preserve job types, got %#v", repo.jobs)
 	}
 }
+
+func TestQueueScopesIdempotencyKeyPerJobTypeAndTarget(t *testing.T) {
+	repo := &fakeJobRepository{}
+	service := NewService(repo)
+
+	job, err := service.QueueIngestion(context.Background(), "software-engineering", "tester", "idem-1", "trc-1")
+	if err != nil {
+		t.Fatalf("QueueIngestion returned error: %v", err)
+	}
+
+	want := "JOB_TYPE_INGEST:software-engineering:idem-1"
+	if job.IdempotencyKey != want {
+		t.Fatalf("queued job idempotency key = %q, want %q", job.IdempotencyKey, want)
+	}
+	if repo.jobs[0].IdempotencyKey != want {
+		t.Fatalf("persisted job idempotency key = %q, want %q", repo.jobs[0].IdempotencyKey, want)
+	}
+}

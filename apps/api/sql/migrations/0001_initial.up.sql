@@ -75,12 +75,12 @@ CREATE TABLE IF NOT EXISTS ai_summaries (
 ) COMMENT='AI 要約結果: LLM による翻訳・要約・スタンス分析。再生成で履歴を保持';
 
 -- トピックグループのテーマ別・新着順検索用
-CREATE INDEX IF NOT EXISTS idx_topic_groups_theme_published_at
-  ON topic_groups(theme_slug, published_at DESC) COMMENT='フロントエンドの新着リスト用';
+CREATE INDEX idx_topic_groups_theme_published_at
+  ON topic_groups(theme_slug, published_at DESC);
 
 -- 要約のステータス・新着順検索用
-CREATE INDEX IF NOT EXISTS idx_ai_summaries_topic_status_created_at
-  ON ai_summaries(topic_group_id, status, created_at DESC) COMMENT='再生成履歴の参照用';
+CREATE INDEX idx_ai_summaries_topic_status_created_at
+  ON ai_summaries(topic_group_id, status, created_at DESC);
 
 -- ジョブ実行履歴: 非同期処理の管理とトレーサビリティ
 CREATE TABLE IF NOT EXISTS job_executions (
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS job_executions (
   idempotency_key VARCHAR(191) NOT NULL UNIQUE COMMENT '重複実行防止用キー',
   trace_id VARCHAR(64) NOT NULL COMMENT '分散トレーシング用 ID',
   error_code VARCHAR(191) NOT NULL DEFAULT '' COMMENT 'エラーコード',
-  error_message TEXT NOT NULL DEFAULT '' COMMENT 'エラーメッセージ',
+  error_message TEXT NOT NULL COMMENT 'エラーメッセージ',
   requested_at TIMESTAMP NOT NULL COMMENT 'リクエスト日時',
   started_at TIMESTAMP NULL COMMENT '開始日時',
   finished_at TIMESTAMP NULL COMMENT '完了日時'

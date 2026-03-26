@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"testing"
 
+	adminv1 "github.com/XRayZen/reddit-ai-digest/packages/proto/gen/go/admin/v1"
 	"gorm.io/gorm"
 )
 
@@ -30,6 +31,12 @@ func registerJobCleanup(t *testing.T, suite *testSuite, idempotencyKey string) {
 			t.Errorf("cleanup job execution %q: verify delete: %v", idempotencyKey, err)
 		}
 	})
+}
+
+// scopedJobIdempotencyKey は admin service と同じ保存キー規則を E2E でも使う。
+// DB 永続化結果と cleanup は raw key ではなく、この scoped key を基準に扱う。
+func scopedJobIdempotencyKey(jobType adminv1.JobType, targetID string, rawKey string) string {
+	return fmt.Sprintf("%s:%s:%s", jobType.String(), targetID, rawKey)
 }
 
 func deleteJobExecutionByIdempotencyKey(ctx context.Context, db *gorm.DB, idempotencyKey string) error {

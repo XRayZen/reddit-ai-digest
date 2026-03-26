@@ -31,6 +31,9 @@ if [ ! -f "${COMPOSE_ENV_FILE}" ]; then
   COMPOSE_ENV_FILE="${REPO_ROOT}/infra/compose/.env.example"
 fi
 COMPOSE=(docker compose -f "${REPO_ROOT}/infra/compose/docker-compose.yml" -f "${REPO_ROOT}/infra/compose/docker-compose.override.yml" --env-file "${COMPOSE_ENV_FILE}")
+MANAGED_PIDS=()
+MYSQL_SERVICE_NAME="mysql"
+MYSQL_DATABASE_NAME="${MYSQL_DATABASE:-reddit_ai_digest}"
 
 run_step() {
   local label="$1"
@@ -41,13 +44,96 @@ run_step() {
   "$@"
 }
 
-cleanup() {
+register_cleanup_pid() {
+  local pid="$1"
+  if [ -n "${pid}" ]; then
+    # 将来バックグラウンド起動を追加しても、他人の開発プロセスではなく
+    # このスクリプトが生やした PID だけを cleanup 対象にできるようにする。
+    MANAGED_PIDS+=("${pid}")
+  fi
+}
+
+compose_service_running() {
+  local service_name="$1"
+  local container_id
+
+  container_id="$("${COMPOSE[@]}" ps -q "${service_name}" 2>/dev/null || true)"
+  if [ -z "${container_id}" ]; then
+    return 1
+  fi
+
+  docker inspect -f '{{.State.Running}}' "${container_id}" 2>/dev/null | grep -q '^true$'
+}
+
+cleanup_managed_processes() {
+  local pid
+  local still_running=()
+
+  if [ "${#MANAGED_PIDS[@]}" -eq 0 ]; then
+    return 0
+  fi
+
+  echo
+  echo "==> Local process cleanup"
+
+  # スクリプトが起動した補助プロセスだけを止め、既存の開発用プロセスは巻き込まない。
+  for pid in "${MANAGED_PIDS[@]}"; do
+    if kill -0 "${pid}" 2>/dev/null; then
+      kill "${pid}" 2>/dev/null || true
+      still_running+=("${pid}")
+    fi
+  done
+
+  if [ "${#still_running[@]}" -eq 0 ]; then
+    return 0
+  fi
+
+  sleep 1
+  for pid in "${still_running[@]}"; do
+    if kill -0 "${pid}" 2>/dev/null; then
+      kill -9 "${pid}" 2>/dev/null || true
+    fi
+  done
+}
+
+cleanup_database() {
+  if ! command -v docker >/dev/null 2>&1; then
+    return 0
+  fi
+  if ! compose_service_running "${MYSQL_SERVICE_NAME}"; then
+    return 0
+  fi
+
+  echo
+  echo "==> Database cleanup"
+
+  # volume 削除に失敗しても次回導線を seed から再現できるよう、DB 自体も初期化しておく。
+  "${COMPOSE[@]}" exec -T "${MYSQL_SERVICE_NAME}" sh -lc '
+    mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" <<SQL
+DROP DATABASE IF EXISTS `'"${MYSQL_DATABASE_NAME}"'`;
+CREATE DATABASE `'"${MYSQL_DATABASE_NAME}"' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+SQL
+  ' >/dev/null 2>&1 || true
+}
+
+cleanup_compose() {
   if ! command -v docker >/dev/null 2>&1; then
     return 0
   fi
   echo
   echo "==> Docker Compose cleanup"
   "${COMPOSE[@]}" down -v >/dev/null 2>&1 || true
+}
+
+cleanup() {
+  local exit_code="$1"
+
+  # cleanup は exit code を変えずに後始末だけを担わせ、失敗原因の追跡を保つ。
+  cleanup_managed_processes
+  cleanup_database
+  cleanup_compose
+
+  exit "${exit_code}"
 }
 
 wait_for_api() {
@@ -86,7 +172,17 @@ check_gofmt() {
   fi
 }
 
-trap cleanup EXIT
+on_exit() {
+  local exit_code="$1"
+  # cleanup 内の docker / mysql コマンド失敗で trap が再入すると追跡しづらくなるため、
+  # 最初に trap を外して終了経路を 1 回に固定する。
+  trap - EXIT INT TERM
+  cleanup "${exit_code}"
+}
+
+trap 'on_exit $?' EXIT
+trap 'on_exit 130' INT
+trap 'on_exit 143' TERM
 
 cd "${REPO_ROOT}"
 
@@ -99,8 +195,8 @@ run_step "Go tests" corepack pnpm test:go
 
 run_step "Reset Compose state" "${COMPOSE[@]}" down -v
 run_step "Start MySQL" "${COMPOSE[@]}" up -d --build mysql
-run_step "Run migrations" "${COMPOSE[@]}" run --rm migrate
-run_step "Seed database" "${COMPOSE[@]}" run --rm seed
+run_step "Run migrations" "${COMPOSE[@]}" run --rm --build migrate
+run_step "Seed database" "${COMPOSE[@]}" run --rm --build seed
 run_step "Start API" "${COMPOSE[@]}" up -d --build api
 run_step "Wait for API health" wait_for_api
 run_step "API E2E tests" env \

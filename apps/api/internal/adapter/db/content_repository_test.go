@@ -28,7 +28,7 @@ func setupTestDB(t *testing.T) *ThemeRepository {
 	if err := createContentTestSchema(context.Background(), sqlDB); err != nil {
 		t.Fatalf("create test schema: %v", err)
 	}
-	if err := applySeedFile(context.Background(), sqlDB, "../../../seeds/seed_data.sql"); err != nil {
+	if err := applySeedFile(context.Background(), sqlDB, "../../../sql/seeds/seed_data.sql"); err != nil {
 		t.Fatalf("seed database: %v", err)
 	}
 	return NewThemeRepository(gormDB, slog.Default())

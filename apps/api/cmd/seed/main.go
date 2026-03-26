@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -28,10 +29,32 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := applySeeds(context.Background(), sqlDB, "apps/api/seeds", cfg.DatabaseDriver); err != nil {
+	seedsDir, err := resolveSeedDir("apps/api/sql/seeds")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := applySeeds(context.Background(), sqlDB, seedsDir, cfg.DatabaseDriver); err != nil {
 		log.Fatal(err)
 	}
 	log.Println("Seed data applied successfully")
+}
+
+func resolveSeedDir(relativePath string) (string, error) {
+	candidates := []string{
+		relativePath,
+		filepath.Join("/app", relativePath),
+		filepath.Join("/workspace", relativePath),
+	}
+
+	for _, candidate := range candidates {
+		info, err := os.Stat(candidate)
+		if err == nil && info.IsDir() {
+			return candidate, nil
+		}
+	}
+
+	return "", fmt.Errorf("seed directory not found: %s", relativePath)
 }
 
 // applySeeds は指定ディレクトリの *.sql ファイルをアルファベット順に実行する。
