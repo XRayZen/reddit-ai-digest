@@ -1,0 +1,68 @@
+// Admin: 管理者用API定義
+//
+// これらのメッセージ型は主にRESTエンドポイントのリクエスト/レスポンスとして
+// 使用され、収集ジョブや再要約ジョブの管理を目的とする
+//
+// ※ 現時点では gRPC サービス定義ではなく型定義のみ
+//   実際のHTTPハンドラーは apps/api/internal/transport/http/admin_handler.go に実装
+syntax = "proto3";
+
+package admin.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/XRayZen/reddit-ai-digest/packages/proto/gen/go/admin/v1;adminv1";
+
+// JobType: ジョブの種類
+enum JobType {
+  JOB_TYPE_UNSPECIFIED = 0;
+  // 収集ジョブ: Redditから新規投稿を収集・翻訳・要約
+  JOB_TYPE_INGEST = 1;
+  // 再要約ジョブ: 既存記事の要約を再生成（プロンプト更新時など）
+  JOB_TYPE_RESUMMARIZE = 2;
+}
+
+// JobStatus: ジョブの実行状態
+enum JobStatus {
+  JOB_STATUS_UNSPECIFIED = 0;
+  // キューに追加済み（未実行）
+  JOB_STATUS_QUEUED = 1;
+  // 実行中
+  JOB_STATUS_RUNNING = 2;
+  // 正常完了
+  JOB_STATUS_COMPLETED = 3;
+  // 失敗（再試行可能）
+  JOB_STATUS_FAILED = 4;
+}
+
+// AdminJob: 非同期ジョブの状態表現
+message AdminJob {
+  string id = 1;
+  JobType type = 2;
+  JobStatus status = 3;
+  // ジョブ対象の識別子（テーマ名 or 記事IDなど、人間可読なラベル）
+  string target_label = 4;
+  google.protobuf.Timestamp requested_at = 5;
+  // ログ追跡用ID（CloudWatch等でジョブの実行ログを相関させる）
+  string trace_id = 6;
+}
+
+// RunIngestionRequest: 収集ジョブ実行リクエスト
+message RunIngestionRequest {
+  // 収集対象のテーマ識別子（例: "golang"）
+  string theme_slug = 1;
+  // 実行者識別子（監査用）
+  string requested_by = 2;
+  // 重複実行防止用キー（同一キーで再リクエストすると既存ジョブを返す）
+  string idempotency_key = 3;
+}
+
+// RunResummarizationRequest: 再要約ジョブ実行リクエスト
+message RunResummarizationRequest {
+  // 再要約対象の記事ID
+  string article_id = 1;
+  // 実行者識別子（監査用）
+  string requested_by = 2;
+  // 重複実行防止用キー（同一キーで再リクエストすると既存ジョブを返す）
+  string idempotency_key = 3;
+}

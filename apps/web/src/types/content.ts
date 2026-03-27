@@ -40,3 +40,30 @@ export type AdminJob = {
   targetLabel: string;
   requestedAt: string;
 };
+
+export type ContentApiMode = "mock" | "live";
+
+export type AdminArticleOption = {
+  id: string;
+  title: string;
+  themeSlug: string;
+};
+
+export type AdminArticleOptionsByTheme = Record<string, AdminArticleOption[]>;
+
+export type QueueIngestionInput = {
+  themeSlug: string;
+  requestedBy?: string;
+  idempotencyKey?: string;
+};
+
+export type QueueResummarizationInput = {
+  articleId: string;
+  requestedBy?: string;
+  idempotencyKey?: string;
+};
+
+export type AdminActionResult = {
+  ok: boolean;
+  message: string;
+};

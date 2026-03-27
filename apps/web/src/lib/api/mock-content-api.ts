@@ -7,6 +7,10 @@ import {
 
 import { ApiNotFoundError } from "@/lib/api/errors";
 import type { ContentApi } from "@/lib/api/types";
+import type {
+  QueueIngestionInput,
+  QueueResummarizationInput,
+} from "@/types/content";
 
 function cloneMockValue<T>(value: T): T {
   // fixture の参照をそのまま返すと、UI やテストでの mutation が次の取得へ漏れる。
@@ -50,5 +54,25 @@ export const mockContentApi: ContentApi = {
 
   async getAdminJobs() {
     return withLatency(listAdminJobs());
+  },
+
+  async queueIngestion(input: QueueIngestionInput) {
+    return withLatency({
+      id: `mock-ingest-${input.themeSlug}`,
+      type: "ingest" as const,
+      status: "queued" as const,
+      targetLabel: `theme:${input.themeSlug}`,
+      requestedAt: new Date("2026-03-26T00:00:00.000Z").toISOString(),
+    });
+  },
+
+  async queueResummarization(input: QueueResummarizationInput) {
+    return withLatency({
+      id: `mock-resummary-${input.articleId}`,
+      type: "resummarize" as const,
+      status: "queued" as const,
+      targetLabel: `article:${input.articleId}`,
+      requestedAt: new Date("2026-03-26T00:00:00.000Z").toISOString(),
+    });
   },
 };

@@ -1,0 +1,82 @@
+// ArticleService: Reddit議論の翻訳・要約結果を提供する公開API
+//
+// - ListArticles: テーマ別の記事一覧（カード形式、軽量）
+// - GetArticle: 記事詳細（翻訳全文・要約・ keypoints 付き）
+syntax = "proto3";
+
+package article.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/XRayZen/reddit-ai-digest/packages/proto/gen/go/article/v1;articlev1";
+
+service ArticleService {
+  rpc ListArticles(ListArticlesRequest) returns (ListArticlesResponse);
+  rpc GetArticle(GetArticleRequest) returns (GetArticleResponse);
+}
+
+// ListArticlesRequest: テーマ別の記事一覧取得リクエスト
+message ListArticlesRequest {
+  // テーマ識別子（例: "golang", "rust-lang"）
+  string theme_slug = 1;
+  // 1ページあたりの件数（デフォルト: 20、最大: 100）
+  int32 page_size = 2;
+  // 次ページ取得用トークン（前回レスポンスの next_page_token を使用）
+  string page_token = 3;
+}
+
+// ListArticlesResponse: 記事一覧レスポンス
+message ListArticlesResponse {
+  // 記事カード一覧（軽量な情報のみ）
+  repeated ArticleCard articles = 1;
+  // 空文字列の場合は最終ページ
+  string next_page_token = 2;
+}
+
+// GetArticleRequest: 記事詳細取得リクエスト
+message GetArticleRequest {
+  // 記事ID
+  string id = 1;
+}
+
+// GetArticleResponse: 記事詳細レスポンス
+message GetArticleResponse {
+  ArticleDetail article = 1;
+}
+
+// ArticleCard: 記事一覧用の軽量な表現
+// 翻訳全文は含まず、要約とメタデータのみ
+message ArticleCard {
+  string id = 1;
+  string theme_slug = 2;
+  string title = 3;
+  // 2-3行程度の要約文
+  string summary = 4;
+  // 元Reddit投稿のURL
+  string source_url = 5;
+  google.protobuf.Timestamp published_at = 6;
+  // 議論の立場タグ（例: "賛成", "反対", "中立"）
+  string stance_label = 7;
+  // keypoints の数
+  int32 point_count = 8;
+}
+
+// ArticleDetail: 記事詳細（翻訳全文と要約を含む完全な表現）
+message ArticleDetail {
+  string id = 1;
+  string theme_slug = 2;
+  string title = 3;
+  // 元Reddit投稿のURL
+  string source_url = 4;
+  // ソースサイト表示名（例: "Reddit r/golang"）
+  string source_site_label = 5;
+  google.protobuf.Timestamp published_at = 6;
+  // 日本語翻訳全文（元投稿の本文）
+  string translation = 7;
+  // 要約（2-3行程度）
+  string summary = 8;
+  // 要点のリスト（各ポイントが独立した議論の要点）
+  repeated string key_points = 9;
+  // 議論の立場タグ（例: "賛成", "反対", "中立"）
+  string stance_label = 10;
+}

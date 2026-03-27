@@ -1,6 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   ActivityIcon,
   CheckCircle2Icon,
@@ -21,6 +22,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -34,7 +44,55 @@ import {
   finishAdminAction,
   startAdminAction,
 } from "@/store/slices/ui-preferences-slice";
-import type { AdminJob } from "@/types/content";
+import type {
+  AdminActionResult,
+  AdminArticleOption,
+  AdminArticleOptionsByTheme,
+  AdminJob,
+  ContentApiMode,
+  Theme,
+} from "@/types/content";
+
+type AdminDashboardProps = {
+  jobs: AdminJob[];
+  themes?: Theme[];
+  articleOptionsByTheme?: AdminArticleOptionsByTheme;
+  mode?: ContentApiMode;
+  queueIngestionAction?: (input: {
+    themeSlug: string;
+  }) => Promise<AdminActionResult>;
+  queueResummarizationAction?: (input: {
+    articleId: string;
+  }) => Promise<AdminActionResult>;
+};
+
+function getInitialThemeSlug(themes: Theme[]): string {
+  return themes[0]?.slug ?? "";
+}
+
+function getArticleOptionsByTheme(
+  articleOptionsByTheme: AdminArticleOptionsByTheme,
+  themeSlug: string,
+): AdminArticleOption[] {
+  return articleOptionsByTheme[themeSlug] ?? [];
+}
+
+export function resolveResummarizationArticleID(
+  articleOptionsByTheme: AdminArticleOptionsByTheme,
+  themeSlug: string,
+  currentArticleID = "",
+): string {
+  const articleOptions = getArticleOptionsByTheme(
+    articleOptionsByTheme,
+    themeSlug,
+  );
+
+  if (articleOptions.some((article) => article.id === currentArticleID)) {
+    return currentArticleID;
+  }
+
+  return articleOptions[0]?.id ?? "";
+}
 
 function getJobStatusVariant(status: AdminJob["status"]) {
   // 状態ごとの差を最小限の variant に寄せ、文言変更があっても見た目の意図を保つ。
@@ -109,7 +167,15 @@ function MobileJobCard({ job }: { job: AdminJob }) {
   );
 }
 
-export function AdminDashboard({ jobs }: { jobs: AdminJob[] }) {
+export function AdminDashboard({
+  jobs,
+  themes = [],
+  articleOptionsByTheme = {},
+  mode = "mock",
+  queueIngestionAction,
+  queueResummarizationAction,
+}: AdminDashboardProps) {
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const [isTransitionPending, startTransition] = useTransition();
   const adminActionPending = useAppSelector(
@@ -121,16 +187,96 @@ export function AdminDashboard({ jobs }: { jobs: AdminJob[] }) {
   const runningJobs = jobs.filter((job) => job.status === "running").length;
   const queuedJobs = jobs.filter((job) => job.status === "queued").length;
   const completedJobs = jobs.filter((job) => job.status === "completed").length;
+  const initialThemeSlug = getInitialThemeSlug(themes);
+  const [ingestionThemeSlug, setIngestionThemeSlug] = useState(
+    () => initialThemeSlug,
+  );
+  const [resummarizationThemeSlug, setResummarizationThemeSlug] = useState(
+    () => initialThemeSlug,
+  );
+  const [resummarizationArticleID, setResummarizationArticleID] = useState(() =>
+    resolveResummarizationArticleID(articleOptionsByTheme, initialThemeSlug),
+  );
+  const selectedIngestionThemeSlug = themes.some(
+    (theme) => theme.slug === ingestionThemeSlug,
+  )
+    ? ingestionThemeSlug
+    : initialThemeSlug;
+  const selectedResummarizationThemeSlug = themes.some(
+    (theme) => theme.slug === resummarizationThemeSlug,
+  )
+    ? resummarizationThemeSlug
+    : initialThemeSlug;
+  const resummarizationArticleOptions = getArticleOptionsByTheme(
+    articleOptionsByTheme,
+    selectedResummarizationThemeSlug,
+  );
+  const selectedResummarizationArticleID = resolveResummarizationArticleID(
+    articleOptionsByTheme,
+    selectedResummarizationThemeSlug,
+    resummarizationArticleID,
+  );
+  const adminActionBusy = adminActionPending || isTransitionPending;
 
-  function runMockAction(label: string) {
-    // 実 API 追加前でも、押下中表示と完了表示の状態遷移だけは先に固めておく。
+  function runMockAction(label: string, successMessage: string) {
     dispatch(startAdminAction(`${label} をキュー投入中です`));
     startTransition(() => {
-      // 遷移待ちを挟み、非同期ジョブ操作へ差し替えても UI 契約を変えない。
+      // mock では backend 非依存の導線を維持しつつ、完了通知だけ live と同じ場所へ返す。
       window.setTimeout(() => {
-        dispatch(finishAdminAction(`${label} のダミー実行を完了しました`));
+        dispatch(finishAdminAction(successMessage));
       }, 500);
     });
+  }
+
+  function runLiveAction(
+    label: string,
+    action: () => Promise<AdminActionResult>,
+  ) {
+    dispatch(startAdminAction(`${label} をキュー投入中です`));
+    startTransition(() => {
+      void (async () => {
+        try {
+          const result = await action();
+
+          dispatch(finishAdminAction(result.message));
+          if (result.ok) {
+            router.refresh();
+          }
+        } catch (error) {
+          dispatch(
+            finishAdminAction(
+              error instanceof Error
+                ? `${label} の投入に失敗しました: ${error.message}`
+                : `${label} の投入に失敗しました`,
+            ),
+          );
+        }
+      })();
+    });
+  }
+
+  function handleIngestion() {
+    if (mode === "live" && queueIngestionAction) {
+      runLiveAction("収集", () =>
+        queueIngestionAction({ themeSlug: selectedIngestionThemeSlug }),
+      );
+      return;
+    }
+
+    runMockAction("収集", "収集 のダミー実行を完了しました");
+  }
+
+  function handleResummarization() {
+    if (mode === "live" && queueResummarizationAction) {
+      runLiveAction("再要約", () =>
+        queueResummarizationAction({
+          articleId: selectedResummarizationArticleID,
+        }),
+      );
+      return;
+    }
+
+    runMockAction("再要約", "再要約 のダミー実行を完了しました");
   }
 
   return (
@@ -144,8 +290,9 @@ export function AdminDashboard({ jobs }: { jobs: AdminJob[] }) {
                 収集と再要約の操作
               </h1>
               <CardDescription className="max-w-3xl leading-8">
-                この段階では API
-                はすべてモックです。操作の手触りと導線だけを先に固めます。
+                {mode === "live"
+                  ? "テーマと記事を選んで管理 REST へ投入し、queued 状態を一覧再取得で確認します。"
+                  : "mock 導線を既定に保ち、操作の手触りと画面構成を backend 非依存で確認できます。"}
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 py-6 sm:grid-cols-3">
@@ -177,7 +324,7 @@ export function AdminDashboard({ jobs }: { jobs: AdminJob[] }) {
                 運用上の見どころ
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-3 py-5">
+            <CardContent className="grid gap-3 py-6">
               <div className="surface-inline flex items-start gap-3 rounded-2xl p-4">
                 <Clock3Icon className="mt-0.5 text-primary" />
                 <p className="text-sm leading-7 text-muted-foreground">
@@ -205,18 +352,128 @@ export function AdminDashboard({ jobs }: { jobs: AdminJob[] }) {
               </CardTitle>
               <CardDescription className="leading-7">
                 収集と再要約を command panel
-                風にまとめ、操作状態は警告帯で返します。
+                風にまとめ、選択対象と操作状態を同じカード内で追えるようにします。
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="grid gap-4 py-6">
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="surface-inline grid gap-3 rounded-2xl p-4">
+                <p className="eyebrow">Ingestion Target</p>
+                <div className="grid gap-2">
+                  <p className="text-sm font-medium">収集対象テーマ</p>
+                  <Select
+                    value={selectedIngestionThemeSlug}
+                    onValueChange={setIngestionThemeSlug}
+                    disabled={adminActionBusy || themes.length === 0}
+                  >
+                    <SelectTrigger
+                      aria-label="収集対象テーマ"
+                      className="w-full"
+                    >
+                      <SelectValue placeholder="テーマを選択">
+                        {themes.find(
+                          (theme) => theme.slug === selectedIngestionThemeSlug,
+                        )?.name ?? "テーマを選択"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>テーマ</SelectLabel>
+                        {themes.map((theme) => (
+                          <SelectItem key={theme.slug} value={theme.slug}>
+                            {theme.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="surface-inline grid gap-3 rounded-2xl p-4">
+                <p className="eyebrow">Resummarization Target</p>
+                <div className="grid gap-2">
+                  <p className="text-sm font-medium">再要約対象テーマ</p>
+                  <Select
+                    value={selectedResummarizationThemeSlug}
+                    onValueChange={(themeSlug) => {
+                      setResummarizationThemeSlug(themeSlug);
+                      setResummarizationArticleID(
+                        resolveResummarizationArticleID(
+                          articleOptionsByTheme,
+                          themeSlug,
+                        ),
+                      );
+                    }}
+                    disabled={adminActionBusy || themes.length === 0}
+                  >
+                    <SelectTrigger
+                      aria-label="再要約対象テーマ"
+                      className="w-full"
+                    >
+                      <SelectValue placeholder="テーマを選択">
+                        {themes.find(
+                          (theme) =>
+                            theme.slug === selectedResummarizationThemeSlug,
+                        )?.name ?? "テーマを選択"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>テーマ</SelectLabel>
+                        {themes.map((theme) => (
+                          <SelectItem key={theme.slug} value={theme.slug}>
+                            {theme.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <p className="text-sm font-medium">再要約対象記事</p>
+                  <Select
+                    value={selectedResummarizationArticleID}
+                    onValueChange={setResummarizationArticleID}
+                    disabled={
+                      adminActionBusy ||
+                      resummarizationArticleOptions.length === 0
+                    }
+                  >
+                    <SelectTrigger
+                      aria-label="再要約対象記事"
+                      className="w-full"
+                    >
+                      <SelectValue placeholder="記事を選択">
+                        {resummarizationArticleOptions.find(
+                          (article) =>
+                            article.id === selectedResummarizationArticleID,
+                        )?.title ?? "記事を選択"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>記事</SelectLabel>
+                        {resummarizationArticleOptions.map((article) => (
+                          <SelectItem key={article.id} value={article.id}>
+                            {article.title}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="cluster items-center">
                 <Button
                   type="button"
                   size="lg"
-                  onClick={() => runMockAction("収集")}
-                  disabled={adminActionPending || isTransitionPending}
+                  onClick={handleIngestion}
+                  disabled={
+                    adminActionBusy || selectedIngestionThemeSlug.length === 0
+                  }
                 >
                   収集実行
                 </Button>
@@ -224,8 +481,11 @@ export function AdminDashboard({ jobs }: { jobs: AdminJob[] }) {
                   type="button"
                   variant="outline"
                   size="lg"
-                  onClick={() => runMockAction("再要約")}
-                  disabled={adminActionPending || isTransitionPending}
+                  onClick={handleResummarization}
+                  disabled={
+                    adminActionBusy ||
+                    selectedResummarizationArticleID.length === 0
+                  }
                 >
                   再要約実行
                 </Button>
@@ -233,16 +493,10 @@ export function AdminDashboard({ jobs }: { jobs: AdminJob[] }) {
               <div className="cluster items-center lg:justify-end">
                 {/* dispatch と transition の両方を見て、連打よりも操作状態の一貫性を優先する。 */}
                 <Badge
-                  variant={
-                    adminActionPending || isTransitionPending
-                      ? "secondary"
-                      : "outline"
-                  }
+                  variant={adminActionBusy ? "secondary" : "outline"}
                   className="rounded-full px-4 py-2 text-xs uppercase tracking-[0.14em]"
                 >
-                  {adminActionPending || isTransitionPending
-                    ? "processing"
-                    : "ready"}
+                  {adminActionBusy ? "processing" : "ready"}
                 </Badge>
                 <Badge variant="outline" className="rounded-full px-4 py-2">
                   jobs {jobs.length}
@@ -279,7 +533,11 @@ export function AdminDashboard({ jobs }: { jobs: AdminJob[] }) {
             {jobs.length === 0 ? (
               <EmptyState
                 title="ジョブはまだありません"
-                description="モック API の履歴を追加すると、管理導線の確認がしやすくなります。"
+                description={
+                  mode === "live"
+                    ? "管理操作を実行すると、queued ジョブがここに表示されます。"
+                    : "mock API の履歴を追加すると、管理導線の確認がしやすくなります。"
+                }
               />
             ) : (
               <div className="grid gap-4">

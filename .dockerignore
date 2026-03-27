@@ -1,0 +1,16 @@
+.git
+.github
+.next
+node_modules
+coverage
+dist
+build
+.pnpm-store
+apps/web/.next
+apps/web/node_modules
+apps/web/storybook-static
+apps/web/playwright-report
+apps/web/test-results
+apps/web/artifacts
+log
+tmp

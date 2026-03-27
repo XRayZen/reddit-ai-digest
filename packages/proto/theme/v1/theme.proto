@@ -1,0 +1,57 @@
+// ThemeService: テーマ（カテゴリ）一覧と詳細を提供するAPI
+//
+// テーマはRedditのサブレディットや技術トピックに対応し、
+// 記事のグルーピング単位として機能する
+syntax = "proto3";
+
+package theme.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/XRayZen/reddit-ai-digest/packages/proto/gen/go/theme/v1;themev1";
+
+service ThemeService {
+  rpc ListThemes(ListThemesRequest) returns (ListThemesResponse);
+  rpc GetTheme(GetThemeRequest) returns (GetThemeResponse);
+}
+
+// ListThemesRequest: テーマ一覧取得リクエスト
+message ListThemesRequest {
+  // 1ページあたりの件数（デフォルト: 20、最大: 100）
+  int32 page_size = 1;
+  // 次ページ取得用トークン
+  string page_token = 2;
+}
+
+// ListThemesResponse: テーマ一覧レスポンス
+message ListThemesResponse {
+  repeated Theme themes = 1;
+  // 空文字列の場合は最終ページ
+  string next_page_token = 2;
+}
+
+// GetThemeRequest: テーマ詳細取得リクエスト
+message GetThemeRequest {
+  // テーマ識別子（例: "golang", "rust-lang"）
+  string slug = 1;
+}
+
+// GetThemeResponse: テーマ詳細レスポンス
+message GetThemeResponse {
+  Theme theme = 1;
+}
+
+// Theme: テーマ（カテゴリ）の表現
+// Redditのサブレディットや技術トピックに対応
+message Theme {
+  // URL安全な識別子（例: "golang", "rust-lang"）
+  string slug = 1;
+  // 表示名（例: "Go言語", "Rust"）
+  string name = 2;
+  // 説明文
+  string description = 3;
+  // 紐づく記事数（リアルタイム集計）
+  int32 article_count = 4;
+  // 最終更新日時（最新の記事収集日時）
+  google.protobuf.Timestamp updated_at = 5;
+}

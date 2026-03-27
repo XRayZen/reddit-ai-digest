@@ -2,7 +2,11 @@
 
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
-import { listAdminJobs } from "@/mocks/fixtures/content-fixtures";
+import {
+  listAdminArticleOptionsByTheme,
+  listAdminJobs,
+  listThemes,
+} from "@/mocks/fixtures/content-fixtures";
 
 import { AdminDashboard } from "./admin-dashboard";
 
@@ -12,6 +16,9 @@ const meta = {
   tags: ["autodocs"],
   args: {
     jobs: listAdminJobs(),
+    themes: listThemes(),
+    articleOptionsByTheme: listAdminArticleOptionsByTheme(),
+    mode: "mock",
   },
 } satisfies Meta<typeof AdminDashboard>;
 

@@ -66,17 +66,18 @@
 例:
 
 ```bash
-docker compose up --build
-docker compose down
-docker compose logs -f
-docker compose ps
+cp .env.example .env
+docker compose -f docker-compose.yml -f docker-compose.override.yml --env-file .env up -d --build mysql
+docker compose -f docker-compose.yml -f docker-compose.override.yml --env-file .env run --rm migrate
+docker compose -f docker-compose.yml -f docker-compose.override.yml --env-file .env run --rm seed
+docker compose -f docker-compose.yml -f docker-compose.override.yml --env-file .env up -d web api worker
+docker compose -f docker-compose.yml -f docker-compose.override.yml --env-file .env logs -f api worker web
+docker compose -f docker-compose.yml -f docker-compose.override.yml --env-file .env ps
 ```
 
 複数ファイルを使う場合の例:
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.override.yml up --build
-```
+`docker-compose.yml` は Compose の正規導線、`docker-compose.override.yml` はローカル固有の bind mount を置くための上書きファイルです。
 
 ---
 
@@ -96,6 +97,9 @@ docker compose -f docker-compose.yml -f docker-compose.override.yml up --build
 - 環境変数は `.env.example` に整理する
 - 秘匿情報を compose ファイルへ直書きしない
 - ローカルで必要な port のみ公開する
+- `web` は browser から直接 `api` に向けず、server-side env の `CONTENT_API_BASE_URL` で接続する
+- `mysql`、`api`、`worker`、`web` は core service として profile なしで起動する
+- `minio` は `storage` profile、`migrate` と `seed` は one-off service として扱う
 
 ---
 
@@ -106,6 +110,13 @@ docker compose -f docker-compose.yml -f docker-compose.override.yml up --build
 - healthcheck の追加
 - worker の起動条件調整
 - ローカルデバッグ用の上書き設定追加
+- MySQL volume の初期化
+
+初期化例:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.override.yml --env-file .env down -v
+```
 
 ---
 

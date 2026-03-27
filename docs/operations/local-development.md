@@ -31,6 +31,8 @@
 - raw データ、AI 出力、ジョブ状態を追えることを重視する
 - 依存サービスが未実装でも、将来の構成を見据えた責務分離は維持する
 - フロントエンド先行フェーズでは API 全モックで UI 実装を進めてもよい
+- `apps/web` の既定導線は `CONTENT_API_MODE=mock` とし、live 疎通確認だけ Compose またはローカル起動の API を使う
+- 管理ジョブの queued 状態を安定して確認する手動 live チェックでは、`worker` を起動しない
 
 ---
 
@@ -119,12 +121,26 @@ make ps
 make logs
 ```
 
+Web live 手動確認の最短導線:
+
+```bash
+cp infra/compose/.env.example infra/compose/.env
+make compose-config
+make migrate
+make seed
+docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env up -d --build web api mysql
+```
+
 補足:
 - DB は MySQL を唯一の正本とし、migration と seed も MySQL に対して実行する
 - `make migrate` と `make seed` は Compose の one-off service を呼び出す
 - 初回初期化をやり直す場合は `docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env down -v` を使う
 - 公開 read API は Connect、管理操作は REST で確認する
 - 管理 REST を叩くときは `X-Admin-Token: local-admin-token` を付ける
+- migration の正当性確認は unit test ではなく、この Compose 導線や統合テスト / E2E で行う
+- `apps/web/scripts/check-all-local.sh` は mock 前提の UI 回帰確認であり、live ブラウザ疎通の代替にはしない
+- `apps/api/scripts/check-all-local.sh` は Compose 上の MySQL / migration / seed / 実 API E2E を担い、worker は起動しない
+- Docker が使えない環境では `apps/api/scripts/check-all-local.sh` が sqlite + ローカル API 起動へ fallback し、API E2E まで継続する
 
 補足:
 
@@ -181,11 +197,23 @@ make logs
 - 収集ジョブを実行できる
 - 要約ジョブを実行できる
 
+live 手動確認 checklist:
+
+1. `http://127.0.0.1:3000/` でテーマ一覧が表示できる
+2. `http://127.0.0.1:3000/themes/software-engineering` で記事一覧が表示できる
+3. `http://127.0.0.1:3000/articles/se-001` で記事詳細が表示できる
+4. `http://127.0.0.1:3000/admin` で収集用テーマ選択、再要約用テーマ選択、記事選択ができる
+5. `収集実行` で queued ジョブが追加され、画面 refresh 後の一覧に反映される
+6. `再要約実行` で queued ジョブが追加され、画面 refresh 後の一覧に反映される
+7. API ログで `trace_id` を確認できる
+
 ### 7.3 品質確認
 
 - 関連テストが通る
 - lint / format が通る
 - 必要なドキュメント更新が行われている
+- バックエンド変更時は `apps/api/scripts/check-all-local.sh` が通る
+- Web 変更時は `./apps/web/scripts/check-all-local.sh` を通す
 
 追加観点:
 
@@ -222,12 +250,27 @@ corepack pnpm --filter @reddit-ai-digest/web test:golden:update
 corepack pnpm --filter @reddit-ai-digest/web test:e2e
 ```
 
+### 7.5 apps/api E2E
+
+- `apps/api/e2e` は seed 済み MySQL と実 API を使って、Connect read API と管理 REST をまとめて確認する
+- 基本フローは `seed -> 各 EP 呼び出し -> レスポンス検証 -> DB 検証 -> cleanup`
+- 管理ジョブの queued 状態を安定して検証するため、ローカル一括チェックでは `worker` を起動しない
+
+確認コマンド:
+
+```bash
+corepack pnpm test:e2e:api
+./apps/api/scripts/check-all-local.sh
+./apps/web/scripts/check-all-local.sh
+```
+
 確認観点:
 
 - `ThemeCard`、`ArticleCard`、`ArticleDetailView`、`ThemeDetailClient`、`AdminDashboard` の主要 state が固定比較できる
 - 長文、空状態、エラー状態、ロード状態を story と baseline に含める
 - diff は `playwright-report/` と `test-results/` で確認する
 - E2E は home -> theme detail -> article detail -> admin の主要導線が通ることを確認する
+- `./apps/web/scripts/check-all-local.sh` は mock fixture 前提の導線回帰であり、live の最終確認は上記 manual checklist に分担する
 
 ---
 

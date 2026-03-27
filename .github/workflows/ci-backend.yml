@@ -28,7 +28,7 @@ on:
       # 依存関係ファイル
       - "go.mod"
       - "go.sum"
-      - "buf.yaml"
+      - "buf.work.yaml"
       - "buf.gen.yaml"
       - "Makefile"
       - "package.json"
@@ -45,7 +45,7 @@ on:
       - ".github/workflows/ci-backend.yml"
       - "go.mod"
       - "go.sum"
-      - "buf.yaml"
+      - "buf.work.yaml"
       - "buf.gen.yaml"
       - "Makefile"
       - "package.json"
@@ -119,9 +119,30 @@ jobs:
         run: corepack pnpm proto:lint
 
       # 後方互換性チェック（PR 時のみ実行）
-      # main ブランチの proto に対して破壊的変更がないか検証
-      - name: Buf breaking
+      # PR の base ブランチの proto に対して破壊的変更がないか検証
+      - name: Fetch base branch for buf breaking
         if: github.event_name == 'pull_request'
+        run: git fetch origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+
+      - name: Prepare comparison directory for buf breaking
+        id: prepare_buf_breaking
+        if: github.event_name == 'pull_request'
+        run: |
+          base_ref="origin/${{ github.base_ref }}"
+          if git cat-file -e "${base_ref}:packages/proto/buf.yaml"; then
+            mkdir -p .buf-compare/packages/proto
+            git archive "${base_ref}" packages/proto | tar -x -C .buf-compare
+            # 比較元 branch に module 設定がある場合だけ、Buf breaking 用の比較ディレクトリを構築する。
+            git show "${base_ref}:packages/proto/buf.yaml" > .buf-compare/packages/proto/buf.yaml
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            # proto module 導入前の branch では比較元を組み立てられないため、breaking を安全に skip する。
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping buf breaking because ${base_ref} does not contain packages/proto/buf.yaml"
+          fi
+
+      - name: Buf breaking
+        if: github.event_name == 'pull_request' && steps.prepare_buf_breaking.outputs.should_run == 'true'
         run: corepack pnpm proto:breaking
 
       # コード生成（生成結果がコミット済みと一致するか確認）
@@ -151,3 +172,38 @@ jobs:
         run: |
           corepack pnpm migrate:api
           corepack pnpm seed:api
+
+      - name: Run API server for E2E
+        env:
+          DATABASE_DRIVER: mysql
+          DATABASE_DSN: app:app@tcp(127.0.0.1:3306)/reddit_ai_digest?parseTime=true&multiStatements=true
+          ADMIN_API_TOKEN: local-admin-token
+        run: |
+          PATH="$HOME/.local/go/bin:$PATH" go run ./apps/api/cmd/api > /tmp/api-e2e.log 2>&1 &
+          echo $! > /tmp/api-e2e.pid
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/api-e2e.log
+          exit 1
+
+      - name: Run API E2E tests
+        env:
+          API_E2E_BASE_URL: http://127.0.0.1:8080
+          API_E2E_DATABASE_DRIVER: mysql
+          API_E2E_DATABASE_DSN: app:app@tcp(127.0.0.1:3306)/reddit_ai_digest?parseTime=true&multiStatements=true
+          API_E2E_ADMIN_TOKEN: local-admin-token
+        run: corepack pnpm test:e2e:api
+
+      - name: Stop API server
+        if: always()
+        run: |
+          if [ -f /tmp/api-e2e.pid ]; then
+            kill "$(cat /tmp/api-e2e.pid)" || true
+          fi
+          if [ -f /tmp/api-e2e.log ]; then
+            cat /tmp/api-e2e.log
+          fi

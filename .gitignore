@@ -14,6 +14,7 @@ dist/
 
 # Production
 *.tgz
+.tmp/
 
 # Misc
 .DS_Store
@@ -52,6 +53,15 @@ lerna-debug.log*
 go.work
 /bin/
 /tmp/
+
+# Binary files (Go executables without extension)
+/api
+/worker
+/a.out
+
+# Build outputs
+/api/
+/worker/
 
 # Terraform
 *.tfstate
