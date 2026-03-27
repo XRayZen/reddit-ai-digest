@@ -59,6 +59,7 @@
 ## 作業前に確認すること
 - データモデルは `../../docs/architecture/data-model.md`
 - 可観測性は `../../docs/architecture/observability.md`
+- Reddit / LLM 本接続は `../../docs/plans/reddit-llm-production-connection-plan.md`
 - ローカル手順は `../../docs/operations/local-development.md`
 - 収集障害は `../../.ai/skills/reddit-ingestion-debug/SKILL.md`
 - prompt 変更は `../../.ai/skills/prompt-regression-check/SKILL.md`

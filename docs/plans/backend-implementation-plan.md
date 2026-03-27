@@ -18,6 +18,7 @@
 - `apps/api/README.md`
 - `apps/worker/AGENTS.md`
 - `apps/worker/README.md`
+- `docs/plans/reddit-llm-production-connection-plan.md`
 
 ---
 
@@ -37,6 +38,7 @@
 - REST は管理用途と health check に限定する
 - 最初の対象機能は read 系 API に絞る
 - write 系、重い worker 連携、Reddit 本接続、LLM 本接続は後段に回す
+- Web 側の mock は削除前提にせず、環境変数で `mock/live` を切り替えられる運用を維持する
 - DB は MySQL を前提にする
 - migration は MySQL 専用 SQL として扱う
 - ローカル開発、テスト、CI は Docker Compose 上の MySQL を基準にそろえる
@@ -65,7 +67,7 @@
 
 補足:
 - この時点では MVP の全機能完成を目指さない
-- まずは「契約を崩さず read 系を通し、FE モックを段階的に実 API に置き換えられる状態」を最小成功条件とする
+- まずは「契約を崩さず read 系を通し、環境変数で `mock/live` を切り替えながら実 API を使える状態」を最小成功条件とする
 
 ---
 
@@ -76,7 +78,7 @@
 2. API サーバー骨格
 3. themes / articles の read API
 4. MySQL migration + repository
-5. FE モック差し替え
+5. Web の `mock/live` 切り替え導線整備
 6. 管理 REST
 7. 可観測性
 8. Worker 骨格
@@ -125,166 +127,115 @@
 
 ## 6. フェーズ別 TODO
 
-### Phase 0: 先に決めること
-- [ ] 最初の BE 対象機能を read 系 API に限定する
-- [ ] Web 接続方式を決める
-- [ ] `packages/proto` を契約の正本とする運用を確定する
-- [ ] REST の用途を管理用途と health check に限定する
-- [ ] proto package 命名規則、Go package 規約、生成先ディレクトリ規約を確定する
-- [ ] pagination、sort、filter の read API 共通ルールを決める
-- [ ] `trace_id` の発行起点と伝播方針を決める
+このセクションでは、完了済みの初期実装を前提に、今後の作業だけを追える形で TODO を再整理する。
 
-完了条件:
-- FE 接続面の方針が 1 つに絞られている
-- proto 正本運用ルールが合意されている
-- read 系 API の対象スコープが `themes` と `articles` に固定されている
+整理方針:
+- フェーズごとに「何を成立させるか」を先に明示する
+- TODO は未完了項目だけに絞る
+- 現状と完了条件を併記し、進捗メモとの往復を減らす
+- Section 8 では同じ TODO を繰り返さず、直近の着手順だけをまとめる
 
-### Phase 1: proto / 契約整備
-- [ ] `packages/proto/theme/v1/theme.proto` を作る
-- [ ] `packages/proto/article/v1/article.proto` を作る
-- [ ] `packages/proto/admin/v1/admin.proto` を作る
-- [ ] `ListThemes` を定義する
-- [ ] `GetTheme` を定義する
-- [ ] `ListArticles` を定義する
-- [ ] `GetArticle` を定義する
-- [ ] 管理用途の最小 contract だけを定義する
-- [ ] enum の 0 値に `*_UNSPECIFIED` を入れる
-- [ ] field number 採番ルールを決める
-- [ ] 削除候補 field / enum の `reserved` 方針を決める
-- [ ] Buf を導入する
-- [ ] `buf lint` を通す
-- [ ] `buf breaking` を通す
-- [ ] code generation コマンドを Makefile / Taskfile に追加する
-- [ ] CI で codegen 更新漏れを検知できるようにする
+補足:
+- この計画の直近実装対象は `Phase A` と `Phase E` を主とする
+- Reddit / LLM / S3 の本接続は [`docs/plans/reddit-llm-production-connection-plan.md`](/home/kojima/ドキュメント/reddit-ai-digest/docs/plans/reddit-llm-production-connection-plan.md) で別管理する
 
-設計メモ:
-- 一覧系 request は `page_size` と `page_token` を基本にする
-- read 系 response は UI 形状と 1 対 1 で揃えすぎず、最小限の読み取り最適化を意識する
-- proto は domain 境界ごとに分け、共通 message の安易な横断共有を避ける
+### Phase A: Web の `mock/live` 切り替え導線整備
+目的:
+- 既に実装済みの read 系 Connect API を、`apps/web` で環境変数により `mock/live` 切替可能な状態で常用できるようにする
 
-完了条件:
-- `theme.proto`、`article.proto`、`admin.proto` の最小 contract が確定している
-- lint と breaking check をローカルで通せる
-- Go / TS 側の生成導線が明文化されている
+現状:
+- read 系 Connect API と Web 側の live 接続導線は既に存在する
+- admin の live 操作は未整備だったが、今回の実装で server action 経由に統一した
+- 主要導線の安定化、`mock/live` の役割整理、live 回帰手順の固定を今回の完了対象とする
 
-### Phase 2: API サーバー骨格
-- [ ] `apps/api/cmd/api/main.go` を作る
-- [ ] gRPC サーバー起動処理を実装する
-- [ ] `/healthz` の最小 REST を作る
-- [ ] config 読み込みを実装する
-- [ ] 構造化 logger を導入する
-- [ ] `trace_id` と request ID を扱う基盤を入れる
-- [ ] OpenTelemetry の最小設定を入れる
-- [ ] gRPC server instrumentation を入れる
-- [ ] gRPC client instrumentation を入れる
-- [ ] graceful shutdown と startup failure の扱いを入れる
-
-設計メモ:
-- handler / transport に業務ロジックを書かない
-- health check は管理・運用補助に限定し、公開データ取得面を REST 化しない
-- 最初は 1 バイナリに複数 service を同居させてよい
-
-完了条件:
-- サーバーがローカルで起動する
-- health check と gRPC の最小疎通ができる
-- リクエストごとのログに `trace_id` を含められる
-
-### Phase 3: ドメイン / usecase の最小実装
-- [ ] `Theme` ドメインを作る
-- [ ] `Article` ドメインを作る
-- [ ] `ListThemes` usecase を作る
-- [ ] `GetTheme` usecase を作る
-- [ ] `ListArticles` usecase を作る
-- [ ] `GetArticle` usecase を作る
-- [ ] handler に業務ロジックを書かない構成にする
-- [ ] domain から adapter を参照しない構成にする
-- [ ] repository interface を利用側基準で切る
-- [ ] transport DTO と domain model の責務境界を分ける
-
-設計メモ:
-- repository interface は DB 都合ではなく usecase 都合で切る
-- domain へ gRPC 生成型や SQL ライブラリ固有型を持ち込まない
-- read 系 usecase から write 系や job 起動を呼ばない
-
-完了条件:
-- usecase が in-memory 実装または stub repository でテスト可能である
-- transport 依存なしに read 系ユースケースを検証できる
-
-### Phase 4: DB / 永続化
-- [ ] migration ツールを導入する
-- [ ] `themes` migration を作る
-- [ ] `source_threads` migration を作る
-- [ ] `source_comments` migration を作る
-- [ ] `ai_summaries` migration を作る
-- [ ] `job_executions` migration を作る
-- [ ] seed データ投入手段を作る
-- [ ] DB アクセス方針を決める
-- [ ] `database/sql` と `sqlc` の比較を行う
-- [ ] `sqlc` を採用する場合は生成規約を固定する
-- [ ] `ThemeRepository` を実装する
-- [ ] `ArticleRepository` を実装する
-- [ ] pagination に必要な index 設計を確認する
-- [ ] Docker Compose 上の MySQL へ migration を適用できるようにする
-- [ ] Docker Compose 上の MySQL へ seed を投入できるようにする
-
-設計メモ:
-- FE 先行でレスポンス shape が見えているため、ORM より SQL 正本型の方が追従しやすい
-- raw、normalized、derived の責務を migration とテーブル設計でも混ぜない
-- article 一覧向けクエリと article 詳細向けクエリは無理に 1 つへ寄せない
-- SQLite 互換のために migration を弱めず、MySQL を検証環境側でそろえる
-
-完了条件:
-- migration をローカルで適用できる
-- seed により `ListThemes` と `ListArticles` の最低限データが作れる
-- repository の read 系実装が usecase テストと統合できる
-- Docker Compose 上の MySQL で migration / seed が通る
-
-### Phase 5: 最初の縦切り実装
-- [ ] `ListThemes` を返せるようにする
-- [ ] FE のテーマ一覧を実 API へ差し替える
-- [ ] `ListArticles` を返せるようにする
-- [ ] FE の記事一覧を差し替える
-- [ ] `GetArticle` を返せるようにする
-- [ ] FE の記事詳細を差し替える
-- [ ] 差し替え済みのモックを削除または隔離する
-- [ ] 1 画面ずつ差し替えて回帰確認する
-- [ ] Docker Compose 上で `apps/web` から `apps/api` へ疎通できることを確認する
+次にやること:
+- [x] `apps/web` の主要画面と取得経路を整理し、live admin を `ContentApi` 境界に追加した
+- [x] `CONTENT_API_MODE=live` で home が安定動作するようにした
+- [x] `CONTENT_API_MODE=live` で theme detail が安定動作するようにした
+- [x] `CONTENT_API_MODE=live` で article detail が安定動作するようにした
+- [x] `CONTENT_API_MODE=live` で admin が安定動作するようにした
+- [x] `CONTENT_API_MODE=mock` でも既存の開発導線が維持されることを確認した
+- [x] mock を残す前提で、切り替えルールと用途を明文化した
+- [x] Compose 上で `web -> api` の疎通確認手順を固定した
+- [x] live 切り替え時の最低限の回帰確認手順を docs / checklist に残した
 
 実装メモ:
-- 差し替えは `themes → articles list → article detail` の順で行う
-- 1 画面ごとにモック削除対象と残置対象を明確にする
-- UI shape に合わせるためだけの過剰な backend 分岐を入れない
-- `apps/web` は server-side env で API 接続先を読み、Compose 内の service name で API に向ける
+- 差し替え順は `themes -> articles list -> article detail` を維持する
+- `apps/web` は server-side env で API 接続先を読む
+- mock は Storybook、ローカル UI 開発、障害切り分け用途として残す
+- UI shape に合わせるためだけの backend 分岐は増やさない
+- admin の live POST は Next.js server action から管理 REST を呼び、内部 API URL と admin token を browser に出さない
+- admin page は server 側で `jobs + themes + theme ごとの article 候補` を取得し、client 側には選択 UI と状態遷移だけを持たせる
 
 完了条件:
-- 少なくとも 1 つの画面が実 API に完全移行している
-- FE の read 系主要導線がモックなしで動作する
-- Docker Compose 上の `web` から実 API を読める
+- 公開 read 系主要導線と admin が `CONTENT_API_MODE=live` で通る
+- `CONTENT_API_MODE=mock` と `CONTENT_API_MODE=live` の使い分けが文書化されている
+- Compose 上で `web` から実 API を読む手順が固定されている
 
-### Phase 6: 管理 REST の最小実装
-- [ ] `/healthz` を整備する
-- [ ] `/admin/jobs` の最小実装を作る
-- [ ] `/admin/ingestions/run` の枠を作る
-- [ ] `/admin/summaries/rerun` の枠を作る
-- [ ] 認可、監査、冪等性の最低限方針を決める
+### Phase B: Worker を本実装へ差し替える準備
+目的:
+- 既にある job 実行基盤を、Reddit 収集と要約の本処理に差し替えられる状態にする
 
-設計メモ:
-- REST は本当に管理用途だけに限定する
-- 公開 read API まで REST を増やし始めると gRPC 主軸の意味が薄れる
-- 即時実行か job 登録かを endpoint ごとに明確に分ける
+現状:
+- worker の claim / complete / fail と idempotency の土台はある
+- 一方で、本処理に必要な job 契約、責務境界、失敗分類がまだ固まっていない
+
+次にやること:
+- [ ] ingestion job の入出力契約を決める
+- [ ] summarization job の入出力契約を決める
+- [ ] `job_executions` と raw / normalized / derived データ更新の責務境界を明文化する
+- [ ] ダミー job から本実装へ差し替える順序を決める
+- [ ] ジョブ失敗分類と再試行方針を決める
+- [ ] worker 実行ログに必要な項目を整理する
+
+実装メモ:
+- 既存の idempotency、claim、status 更新を壊さずに差し替える
+- 収集と要約を 1 つの巨大 job にせず、境界を明確に保つ
+- raw snapshot 保存と AI 出力保存は更新責務を混ぜない
 
 完了条件:
-- 管理操作の最小ルートが存在する
-- REST と gRPC の責務境界が文書化されている
+- ingestion / summarization の job 契約と状態遷移が文書化されている
+- ダミー実装を外しても既存の job 管理と整合する見通しが立っている
 
-### Phase 7: 可観測性と障害追跡
-- [ ] API リクエストごとに `trace_id` を発行 / 伝播する
-- [ ] gRPC リクエストログに `trace_id` を入れる
-- [ ] DB アクセス前後で最低限の構造化ログを出す
-- [ ] 外部 API 呼び出し前後の span / log を残す
-- [ ] Sentry 連携の枠を作る
-- [ ] CloudWatch Logs 前提のログ項目を整理する
-- [ ] エラーコードと失敗分類方針を決める
+### Phase C: 外部連携の本接続
+目的:
+- Reddit 収集、LLM 要約、raw snapshot 保存を実装し、MVP の backend パイプラインを前進させる
+- 詳細計画は [`docs/plans/reddit-llm-production-connection-plan.md`](/home/kojima/ドキュメント/reddit-ai-digest/docs/plans/reddit-llm-production-connection-plan.md) で別管理する
+
+現状:
+- Reddit / LLM / S3 の本接続は未着手である
+- 先に Phase B で job 境界と保存責務を固めてから着手する
+
+次にやること:
+- [ ] 別 plan の scope / phase / 失敗分類 / env / observability を確定する
+- [ ] `Phase B` の job 契約と責務境界を、別 plan で使う runtime 契約へ接続する
+- [ ] 外部本接続の実装順を `Reddit -> snapshot -> normalize -> LLM -> persist` で固定する
+- [ ] 本接続時のテスト戦略を unit / integration / e2e / eval に分けて別 plan へ反映する
+
+実装メモ:
+- raw データは破壊的に上書きしない
+- `prompt_version`、`model_name`、token usage を追える形を維持する
+- provider 固有型を domain に持ち込まない
+- 公開 read API と管理 REST の runtime 契約は増やさない
+
+完了条件:
+- 別 plan に Reddit / LLM / snapshot 本接続の decision-complete な実装方針が整理されている
+- 本計画との依存関係が `Phase B` / `Phase D` / `Phase E` の観点で矛盾なく接続されている
+
+### Phase D: 運用と可観測性の補強
+目的:
+- 既存の `trace_id` と構造化ログを、本番運用で調査可能な粒度まで引き上げる
+
+現状:
+- API / worker の最小ログと `trace_id` 基盤はある
+- まだ CloudWatch / Sentry / 失敗分類を前提にした運用設計までは揃っていない
+
+次にやること:
+- [ ] CloudWatch を前提にしたログ項目を整理する
+- [ ] 外部 API 呼び出し前後の span / log を揃える
+- [ ] worker 側の障害追跡導線を明文化する
+- [ ] Sentry 連携を入れる
+- [ ] エラーコードと失敗分類を API / worker / job で揃える
 
 最低限含めるログ項目:
 - `timestamp`
@@ -304,228 +255,176 @@
 - `latency_ms`
 
 完了条件:
-- API の主要 read 系リクエストで trace とログを相互参照できる
-- 障害時に `trace_id` 起点で API、DB、Worker 境界まで辿れる設計になっている
+- `trace_id` 起点で API、DB、worker、外部呼び出しを追える
+- 失敗時の一次調査手順が迷わない
 
-### Phase 8: Worker 骨格
-- [ ] `apps/worker/cmd/worker/main.go` を作る
-- [ ] `job_execution` 記録の枠を作る
-- [ ] ingestion のダミー job を作る
-- [ ] summarization のダミー job を作る
-- [ ] API から管理 REST 経由で job を起動できる枠を作る
-- [ ] failed 時の status 記録を実装する
-- [ ] retry 境界と status 遷移ルールを決める
-- [ ] 複数 worker 起動を前提に job claim の排他制御を実装する
-- [ ] 並行 enqueue / 並行 claim のテストを追加する
+### Phase E: ローカル導線と CI の整合
+目的:
+- 既にある backend CI とローカル検証導線のズレを減らし、再現性を上げる
 
-設計メモ:
-- この段階では Reddit 本接続や LLM 本接続まで一気にやらない
-- まずは job 境界、再試行、記録の枠だけを作る
-- raw snapshot 保存と derived data 生成は将来差し込みやすい設計にしておく
-- MySQL 前提で row lock を使える実装にし、複数 worker で同じ job を二重処理しない
+現状:
+- Compose、migration / seed、backend CI の土台は揃っている
+- Web live 回帰の docs 固定と自動チェックの分担整理が今回の対象である
+- SQLite 由来の差分や複数 worker 検証は今回の対象外として別タスクに残す
 
-完了条件:
-- ingestion と summarization のダミー job を起動し、履歴を残せる
-- 失敗時に `job_execution` とログで原因を追える
-- 複数 worker 起動でも同じ queued job を二重処理しない
+次にやること:
+- [x] `check-all-local.sh` と CI の検証項目差分を洗い出した
+- [x] Compose 前提の backend 検証手順を docs に一本化した
+- [x] Web の `mock/live` 切り替え後の回帰確認を script と manual checklist に分担した
+- [x] proto / codegen / migration / e2e の更新漏れを見つけやすい説明にした
 
-### Phase 9: CI / 品質ゲート
-- [ ] `buf lint` を CI に追加する
-- [ ] `buf breaking` を CI に追加する
-- [ ] Go test を CI に追加する
-- [ ] migration チェックを CI に追加する
-- [ ] CI で MySQL を起動する
-- [ ] CI で migration / seed を MySQL に対して実行する
-- [ ] CI で Go test を MySQL に対して実行する
-- [ ] Docker Compose 上での backend テスト実行手順を整備する
-- [ ] codegen 更新漏れチェックを入れる
-- [ ] PR テンプレートに proto / docs / eval 確認項目を追加する
-- [ ] FE 差し替え時の最低限の回帰確認手順を CI またはチェックリストへ入れる
+実装メモ:
+- CI に既にあるものを TODO へ重複計上しない
+- 追加するのは「不足している検証」か「分かりづらい導線の整理」に限る
+- `apps/web/scripts/check-all-local.sh` は mock 前提の UI 回帰に固定する
+- `apps/api/scripts/check-all-local.sh` は MySQL / migration / seed / 実 API E2E に固定する
+- live ブラウザ疎通は `web + api + mysql` を起動する手動 checklist で担保し、queued 状態確認のため `worker` は起動しない
 
 完了条件:
-- proto 契約変更の事故を CI で早期に検知できる
-- codegen、migration、Go test の更新漏れを見逃しにくい
-- MySQL 方言差分を CI で検知できる
-- Docker Compose を使ったローカル検証と CI 検証の乖離が小さい
+- ローカルと CI の期待値が大きくずれない
+- backend 変更時の確認手順が 1 本の導線として説明できる
 
 ---
 
-## 7. 実装進捗状況 (2025-03-25 現在)
+## 7. 実装進捗状況 (2026-03-26 現在)
 
-### 完了済みフェーズ
+このセクションは計画ではなく、現状コードを確認したうえでの進捗メモである。
 
-#### Phase 0: 先に決めること ✓
-- [x] 最初の BE 対象機能を read 系 API に限定する
-- [x] Web 接続方式を決める (Connect 採用)
-- [x] `packages/proto` を契約の正本とする運用を確定する
-- [x] REST の用途を管理用途と health check に限定する
-- [x] proto package 命名規則、Go package 規約、生成先ディレクトリ規約を確定する
-- [x] pagination、sort、filter の read API 共通ルールを決める
-- [x] `trace_id` の発行起点と伝播方針を決める
+### 完了済み
 
-#### Phase 1: proto / 契約整備 ✓
-- [x] `packages/proto/theme/v1/theme.proto` 作成済み
-- [x] `packages/proto/article/v1/article.proto` 作成済み
-- [x] `packages/proto/admin/v1/admin.proto` 作成済み
-- [x] `ListThemes`, `GetTheme`, `ListArticles`, `GetArticle` 定義済み
-- [x] enum の 0 値に `*_UNSPECIFIED` を適用
-- [x] Buf 導入完了 (`buf.yaml`, `buf.gen.yaml`)
-- [x] `buf lint` 通過
-- [x] `buf breaking` 通過
-- [x] code generation コマンドを Makefile に追加
-- [x] CI で codegen 更新漏れを検知
+#### Phase 0: 先に決めること
+- [x] 最初の BE 対象機能を read 系 API に限定した
+- [x] Web 接続方式として `Connect` を採用した
+- [x] `packages/proto` を契約の正本とする運用が入っている
+- [x] REST を管理用途と health check に限定している
+- [x] read 系の pagination は `page_size` と `page_token` ベースで統一している
+- [x] `trace_id` の発行と伝播の基盤が入っている
 
-#### Phase 2: API サーバー骨格 ✓
-- [x] `apps/api/cmd/api/main.go` 作成済み
-- [x] gRPC サーバー起動処理実装済み
-- [x] `/healthz` の最小 REST 実装済み
-- [x] config 読み込み実装済み (`internal/infra/config/config.go`)
-- [x] 構造化 logger 導入済み (`internal/infra/logger/logger.go`)
-- [x] `trace_id` と request ID を扱う基盤導入済み
-- [x] OpenTelemetry の最小設定導入済み
-- [x] gRPC server instrumentation 導入済み
-- [x] graceful shutdown と startup failure の扱い実装済み
+#### Phase 1: proto / 契約整備
+- [x] [`packages/proto/theme/v1/theme.proto`](/home/kojima/ドキュメント/reddit-ai-digest/packages/proto/theme/v1/theme.proto)
+- [x] [`packages/proto/article/v1/article.proto`](/home/kojima/ドキュメント/reddit-ai-digest/packages/proto/article/v1/article.proto)
+- [x] [`packages/proto/admin/v1/admin.proto`](/home/kojima/ドキュメント/reddit-ai-digest/packages/proto/admin/v1/admin.proto)
+- [x] `ListThemes` / `GetTheme` / `ListArticles` / `GetArticle` が定義済み
+- [x] enum の 0 値に `*_UNSPECIFIED` を採用済み
+- [x] Buf 導線が入っている (`buf.yaml`, `buf.gen.yaml`, `Makefile`, `package.json`)
+- [x] Go / TS の生成コードがコミットされている
 
-#### Phase 3: ドメイン / usecase の最小実装 ✓
-- [x] `Theme` ドメイン作成済み (`internal/domain/content.go`)
-- [x] `Article` ドメイン作成済み
-- [x] `ListThemes` usecase 作成済み (`internal/usecase/theme/service.go`)
-- [x] `GetTheme` usecase 作成済み
-- [x] `ListArticles` usecase 作成済み (`internal/usecase/article/service.go`)
-- [x] `GetArticle` usecase 作成済み
-- [x] handler に業務ロジックを書かない構成
-- [x] domain から adapter を参照しない構成
-- [x] repository interface を利用側基準で切る
-- [x] transport DTO と domain model の責務境界を分ける
-- [x] usecase テスト作成済み (`service_test.go`)
+#### Phase 2: API サーバー骨格
+- [x] [`apps/api/cmd/api/main.go`](/home/kojima/ドキュメント/reddit-ai-digest/apps/api/cmd/api/main.go) が存在する
+- [x] Connect handler と `/healthz` を同一 HTTP サーバーに載せている
+- [x] config / logger / graceful shutdown が入っている
+- [x] `TraceMiddleware` により `trace_id` をレスポンスヘッダーとログへ載せている
+- [x] OpenTelemetry の最小設定が入っている
 
-#### Phase 4: DB / 永続化 ✓
-- [x] migration ツール導入済み (`cmd/migrate/main.go`)
-- [x] `themes` migration 作成済み
-- [x] `source_threads` migration 作成済み
-- [x] `source_comments` migration 作成済み
-- [x] `ai_summaries` migration 作成済み
-- [x] `job_executions` migration 作成済み
-- [x] `topic_groups` migration 作成済み
-- [x] seed データ投入手段作成済み (`cmd/seed/main.go`)
-- [x] DB アクセス方針決定 (GORM)
-- [x] `ThemeRepository` 実装済み (`internal/adapter/db/content_repository.go`)
-- [x] `ArticleRepository` 実装済み
-- [x] pagination に必要な index 設計完了
-- [x] repository テスト作成済み (`content_repository_test.go`)
+#### Phase 3: ドメイン / usecase の最小実装
+- [x] [`apps/api/internal/domain/content.go`](/home/kojima/ドキュメント/reddit-ai-digest/apps/api/internal/domain/content.go)
+- [x] [`apps/api/internal/usecase/theme/service.go`](/home/kojima/ドキュメント/reddit-ai-digest/apps/api/internal/usecase/theme/service.go)
+- [x] [`apps/api/internal/usecase/article/service.go`](/home/kojima/ドキュメント/reddit-ai-digest/apps/api/internal/usecase/article/service.go)
+- [x] [`apps/api/internal/usecase/admin/service.go`](/home/kojima/ドキュメント/reddit-ai-digest/apps/api/internal/usecase/admin/service.go)
+- [x] handler に業務ロジックを寄せない構成になっている
+- [x] usecase の unit test がある
 
-#### Phase 6: 管理 REST の最小実装 ✓
-- [x] `/healthz` 整備済み
-- [x] `/admin/jobs` の最小実装作成済み (`internal/transport/http/admin_handler.go`)
-- [x] `/admin/ingestions/run` の枠作成済み
-- [x] `/admin/summaries/rerun` の枠作成済み
-- [x] admin handler テスト作成済み (`admin_handler_test.go`)
+#### Phase 4: DB / 永続化
+- [x] 初期 migration がある: [`apps/api/sql/migrations/0001_initial.up.sql`](/home/kojima/ドキュメント/reddit-ai-digest/apps/api/sql/migrations/0001_initial.up.sql)
+- [x] seed 導線がある: [`apps/api/cmd/seed/main.go`](/home/kojima/ドキュメント/reddit-ai-digest/apps/api/cmd/seed/main.go)
+- [x] `themes` / `source_threads` / `source_comments` / `topic_groups` / `ai_summaries` / `job_executions` が定義済み
+- [x] GORM ベースの read repository がある
+- [x] repository test がある
 
-#### Phase 7: 可観測性と障害追跡 ✓
-- [x] API リクエストごとに `trace_id` を発行 / 伝播 (`internal/infra/httpserver/middleware.go`)
-- [x] gRPC リクエストログに `trace_id` を入れる
-- [x] OpenTelemetry span 設定済み
-- [x] 構造化ログ導入済み (JSON logger)
-- [x] エラーコードと失敗分類方針決定済み (`internal/domain/errors.go`)
+#### Phase 6: 管理 REST の最小実装
+- [x] [`apps/api/internal/transport/http/admin_handler.go`](/home/kojima/ドキュメント/reddit-ai-digest/apps/api/internal/transport/http/admin_handler.go)
+- [x] `/api/admin/jobs`
+- [x] `/api/admin/ingestions/run`
+- [x] `/api/admin/summaries/rerun`
+- [x] `X-Admin-Token` による最小認証がある
 
-#### Phase 8: Worker 骨格 ✓
-- [x] `apps/worker/cmd/worker/main.go` 作成済み
-- [x] `job_execution` 記録の枠作成済み
-- [x] ingestion のダミー job 作成済み (`internal/runner/runner.go`)
-- [x] summarization のダミー job 作成済み
-- [x] failed 時の status 記録実装済み
-- [x] retry 境界と status 遷移ルール決定済み
-- [x] runner テスト作成済み (`runner_test.go`)
+#### Phase 7: 可観測性と障害追跡
+- [x] [`apps/api/internal/infra/httpserver/middleware.go`](/home/kojima/ドキュメント/reddit-ai-digest/apps/api/internal/infra/httpserver/middleware.go) で `trace_id` を発行・伝播
+- [x] API と DB repository で `trace_id` を含む構造化ログを出している
+- [x] API / worker の両方で OTel tracer provider を初期化している
 
-#### Phase 9: CI / 品質ゲート ✓
-- [x] `buf lint` を CI に追加済み
-- [x] `buf breaking` を CI に追加済み
-- [x] Go test を CI に追加済み
-- [x] migration チェックを CI に追加済み
-- [x] CI で SQLite を使用した migration / seed 検証済み
-- [x] codegen 更新漏れチェックを入れる
-- [x] PR テンプレート更新済み (`.github/PULL_REQUEST_TEMPLATE.md`)
+#### Phase 8: Worker 骨格
+- [x] [`apps/worker/cmd/worker/main.go`](/home/kojima/ドキュメント/reddit-ai-digest/apps/worker/cmd/worker/main.go)
+- [x] [`apps/worker/internal/runner/runner.go`](/home/kojima/ドキュメント/reddit-ai-digest/apps/worker/internal/runner/runner.go)
+- [x] queued job の claim / completed / failed 更新が実装されている
+- [x] idempotency key と queued claim の基本テストがある
+- [x] 実行本体はまだ dummy job のまま
 
-### 進行中/未完了のフェーズ
+#### Phase 9: CI / 品質ゲート
+- [x] [`.github/workflows/ci-backend.yml`](/home/kojima/ドキュメント/reddit-ai-digest/.github/workflows/ci-backend.yml)
+- [x] `buf lint`
+- [x] PR 時の `buf breaking`
+- [x] proto 再生成と生成差分チェック
+- [x] `go test ./...`
+- [x] MySQL を使った migration / seed 検証
+- [x] 実 API を起動して `apps/api/e2e` を流す backend CI がある
+- [x] PR テンプレートに proto / docs / eval チェックがある
 
-#### Phase 5: 最初の縦切り実装 (進行中)
-- [x] `ListThemes` を返せるようにする (実装済み)
-- [ ] FE のテーマ一覧を実 API へ差し替える
-- [x] `ListArticles` を返せるようにする (実装済み)
-- [ ] FE の記事一覧を差し替える
-- [x] `GetArticle` を返せるようにする (実装済み)
-- [ ] FE の記事詳細を差し替える
-- [ ] 差し替え済みのモックを削除または隔離する
-- [ ] 1 画面ずつ差し替えて回帰確認する
-- [ ] Docker Compose 上で `apps/web` から `apps/api` へ疎通確認
+### 進行中
 
-**備考:** Connect RPC クライアント作成済み (`apps/web/src/lib/api/rpc-clients.ts`)
+#### Phase 5: Web の `mock/live` 切り替え導線整備
+- [x] read 系 Connect API は実装済み
+- [x] Web 側には live 接続導線がある
+  [`apps/web/src/lib/api/rpc-clients.ts`](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/src/lib/api/rpc-clients.ts)
+  [`apps/web/src/lib/api/live-content-api.ts`](/home/kojima/ドキュメント/reddit-ai-digest/apps/web/src/lib/api/live-content-api.ts)
+- [x] live admin 操作を `ContentApi` 境界と server action 経由で追加した
+- [x] admin page が server 側で `jobs + themes + article 候補` を事前取得するようになった
+- [x] `CONTENT_API_MODE=mock` / `live` の使い分けを文書化した
+- [x] mock を残したまま `live` 導線の常用条件を整理した
+- [x] home / theme detail / article detail / admin の live 動作をローカル起動で確認した
+- [x] Compose 前提の手順を docs に固定した
 
----
+#### Phase E: ローカル導線と CI の整合
+- [x] `apps/web/scripts/check-all-local.sh` の役割を mock UI 回帰に固定した
+- [x] `apps/api/scripts/check-all-local.sh` の役割を API / DB 一貫性確認に固定した
+- [x] Docker 不可環境でも `apps/api/scripts/check-all-local.sh` が sqlite fallback で API E2E まで継続できるようにした
+- [x] live ブラウザ疎通は manual checklist に分担する方針を docs へ反映した
+- [x] `worker` を止めたまま queued 状態を確認する手順を docs へ反映した
+- [x] Web / API / docs の導線説明を更新した
 
-## 8. 次のアクション (2025-03-25 現在)
+### 未着手または骨格のみ
 
-### 8.1 優先度高: FE モック差し替え (Phase 5)
-バックエンド API は実装済みのため、フロントエンドのモックを実 API に差し替える。
-
-- [ ] テーマ一覧画面を実 API に差し替え
-- [ ] 記事一覧画面を実 API に差し替え
-- [ ] 記事詳細画面を実 API に差し替え
-- [ ] モック削除対象と残置対象を明確化
-- [ ] Docker Compose 上で疎通確認
-
-### 8.2 優先度中: Reddit / LLM 本接続 (Phase 9)
-- [ ] Reddit API 収集実装
-- [ ] LLM 要約実装
-- [ ] ジョブキューの排他制御強化
-- [ ] S3 連携 (raw snapshot 保存)
-
-### 8.3 優先度低: 運用改善
-- [ ] Docker Compose 環境整備 (`infra/compose/`)
-- [ ] CloudWatch Logs 連携
+- [ ] Reddit 本接続
+- [ ] LLM 本接続
+- [ ] raw snapshot の S3 保存
 - [ ] Sentry 連携
+- [ ] CloudWatch Logs 前提の本番運用整備
+- [ ] worker の実ジョブ実装
+
+---
+
+## 8. 次のアクション (2026-03-26 現在)
+
+このセクションでは、Section 6 の TODO を直近の着手順に圧縮して示す。
+
+### 8.1 優先度高
+- Phase B を進め、dummy worker を本実装へ差し替えるための job 契約と責務境界を確定する
+
+### 8.2 優先度中
+- Phase D の前提として、失敗分類とログ項目の統一方針を固める
+- Compose 実起動の最終確認は Docker が使える環境で manual checklist を再実施して記録する
+
+### 8.3 優先度低
+- [`docs/plans/reddit-llm-production-connection-plan.md`](/home/kojima/ドキュメント/reddit-ai-digest/docs/plans/reddit-llm-production-connection-plan.md) を起点に、Phase C の本接続へ着手する
 
 ---
 
 ## 9. 判断メモと補強ポイント
 
-### 8.1 Connect と gRPC-Web の扱い ✓ (決定済み)
-**決定:** Connect を採用
+### 9.1 Connect 採用は維持でよい
+現状コードは API 側で Connect handler、Web 側で Connect client を使用しており、read 系導線はこの方針で一貫している。公開 read API のために REST を増やす理由は今のところない。
 
-理由:
-- 純粋な gRPC はブラウザからそのまま扱いにくい
-- `gRPC-Web` は通常 proxy を前提にする
-- `Connect` は browser 互換の HTTP API を扱いやすく、gRPC / gRPC-Web の両面に寄せやすい
+### 9.2 read 系は「実装済み」、課題は「デフォルト切り替え」
+`ThemeService` / `ArticleService` と E2E は揃っている。残っているのは API 実装ではなく、Web の `mock/live` 切替運用の整理と Compose 導線の固定化である。
 
-実装状況:
-- 契約の正本は proto に配置済み
-- ブラウザ接続面に `Connect` を採用済み
-- API サーバーで Connect handler 使用中 (`internal/transport/connect/*_handler.go`)
-- Web 側で Connect クライアント作成済み (`apps/web/src/lib/api/rpc-clients.ts`)
+### 9.3 DB アクセス方針は GORM で進んでいる
+当初の比較検討項目は残っているが、現実装は GORM repository に寄っている。今後この計画書で DB 方針を書く場合は、「検討中」ではなく「GORM 採用済み。ただし将来の置換余地は別途判断」に修正して扱う。
 
-### 8.2 read 系を先に通す理由
-最初に `themes → articles` の read 系を縦切りで通すことが重要である。
+### 9.4 worker は骨格を超え始めているが、本処理はまだない
+`job_executions` の enqueue、idempotency、claim、status 更新までは入っている。一方で Reddit / LLM / S3 は未接続なので、「worker 未着手」ではなく「実行基盤あり、本処理未実装」と表現するのが正確である。
 
-理由:
-- FE で完成済みの最低限 UI を壊しにくい
-- `proto → usecase → repository → transport → FE` の一連を小さく検証できる
-- ingestion や summarization を先に始めるより依存範囲が狭い
-
-### 8.3 DB アクセス方針 ✓ (決定済み)
-**決定:** GORM を採用
-
-実装状況:
-- GORM を使用した repository 実装済み (`internal/adapter/db/content_repository.go`)
-- MySQL 専用 migration (`migrations/0001_initial.up.sql`)
-- ローカル開発と CI は SQLite 互換モードで検証
-- `internal/platform/database` で抽象化済み
-
-### 8.4 可観測性の着手タイミング
-可観測性は後付けではなく、API 骨格と同時に最小セットを入れる。
-
-理由:
-- `trace_id` 発行と伝播の設計は transport 以降の全層に影響する
-- 後で追加すると API、Worker、LLM 境界の相関が切れやすい
+### 9.5 外部本接続は別 plan で扱う
+Reddit / LLM / S3 は API の read 系と比べて、外部規約、認証、snapshot 保持、prompt / eval、運用制約まで含めた意思決定が多い。`Phase C` を本計画に残したまま詳細化すると焦点がぼやけるため、詳細は [`docs/plans/reddit-llm-production-connection-plan.md`](/home/kojima/ドキュメント/reddit-ai-digest/docs/plans/reddit-llm-production-connection-plan.md) に分離して扱う。
 
 ---
 
@@ -604,22 +503,23 @@
 - [x] `ListThemes` が実装されている
 - [x] `ListArticles` が実装されている
 - [x] `GetArticle` が実装されている
-- [ ] FE のテーマ一覧が実 API へ切り替わっている (**未完了**)
-- [ ] FE の記事一覧が実 API へ切り替わっている (**未完了**)
-- [ ] FE の記事詳細が実 API へ切り替わっている (**未完了**)
+- [x] FE のテーマ一覧が `mock/live` 切替可能な状態で実 API 確認できている
+- [x] FE の記事一覧が `mock/live` 切替可能な状態で実 API 確認できている
+- [x] FE の記事詳細が `mock/live` 切替可能な状態で実 API 確認できている
+- [x] FE の管理画面が `mock/live` 切替可能な状態で実 API 確認できている
 - [x] MySQL migration が導入されている
-- [ ] Docker Compose で `web`、`api`、`worker`、`mysql` を起動できる (**部分的に完了**)
+- [ ] Docker Compose で `web`、`api`、`worker`、`mysql` を起動できる (**手順は固定済みだが、この実装ターンでは Docker socket 制約により実測未了**)
 - [x] Docker Compose 上で migration / seed / Go test を実行できる
 - [x] proto の lint / breaking check が CI に入っている
-- [x] CI で MySQL (SQLite 互換) を使って migration / seed / Go test を実行できる
+- [x] CI で MySQL を使って migration / seed / API E2E を実行できる
 - [x] 構造化ログと `trace_id` が API で確認できる
 - [x] Worker の最小骨格が存在する
 
 ### 残タスク
-- **Phase 5 (最重要):** FE モック差し替え
-  - テーマ一覧、記事一覧、記事詳細の順で実装
-- **Phase 9:** Reddit / LLM 本接続
-- **インフラ:** Docker Compose 環境整備
+- **Phase B / D:** job 契約、可観測性の整備
+- **Compose 実測:** Docker が使える環境で `web + api + worker + mysql` の manual checklist を再実施し、確認記録を残す
+- **別 plan 管理:** [`docs/plans/reddit-llm-production-connection-plan.md`](/home/kojima/ドキュメント/reddit-ai-digest/docs/plans/reddit-llm-production-connection-plan.md) に基づく Reddit / LLM / snapshot 本接続
+- **インフラ / worker:** 複数 worker 前提の queue 検証と本処理実装
 
 加えて、リポジトリ共通の完了条件として以下を守る。
 
@@ -655,8 +555,8 @@
 - `internal/infra/config/config.go` - 設定
 - `internal/infra/logger/logger.go` - ロガー
 - `internal/infra/httpserver/middleware.go` - HTTP ミドルウェア
-- `migrations/0001_initial.up.sql` - 初期 migration
-- `seeds/seed_data.sql` - シードデータ（開発・検証用）
+- `sql/migrations/0001_initial.up.sql` - 初期 migration
+- `sql/seeds/seed_data.sql` - シードデータ（開発・検証用）
 
 ### Worker (`apps/worker/`)
 - `cmd/worker/main.go` - メインワーカー
@@ -680,4 +580,4 @@
 - `docs/architecture/api.md` - API 設計
 - `docs/operations/local-development.md` - ローカル開発手順
 - `docs/adr/architecture-decisions.md` - アーキテクチャ決定
-
+- `apps/web/README.md` - `mock/live` 運用と live 手動確認 checklist

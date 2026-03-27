@@ -85,7 +85,7 @@ func applySeeds(ctx context.Context, db *sql.DB, dir string, dialect string) err
 
 		// SQLite テストでも同じ seed を使えるよう、MySQL 専用の COMMENT 句だけを落とす
 		if dialect == "sqlite" {
-			query = stripMySQLComments(query)
+			query = sqliteCompatibleSeedQuery(query)
 		}
 
 		tx, err := db.BeginTx(ctx, nil)
@@ -105,6 +105,16 @@ func applySeeds(ctx context.Context, db *sql.DB, dir string, dialect string) err
 	return nil
 }
 
+// sqliteCompatibleSeedQuery は seed SQL のうち SQLite 非対応の MySQL 構文を吸収する。
+// 開発用 seed を 1 本に保ちつつ、Docker 不可環境でも API E2E を実行できるようにする。
+func sqliteCompatibleSeedQuery(query string) string {
+	query = stripMySQLComments(query)
+	query = strings.ReplaceAll(query, "INSERT IGNORE INTO", "INSERT OR IGNORE INTO")
+	query = strings.ReplaceAll(query, "insert ignore into", "INSERT OR IGNORE INTO")
+	query = rewriteSQLiteUpserts(query)
+	return query
+}
+
 // stripMySQLComments は MySQL の COMMENT 句を削除する（SQLite 互換化）
 // internal/platform/migrate/runner.go と同じ実装
 func stripMySQLComments(query string) string {
@@ -117,4 +127,17 @@ func stripMySQLComments(query string) string {
 	query = tableCommentPattern.ReplaceAllString(query, ")")
 	query = indexCommentPattern.ReplaceAllString(query, "")
 	return query
+}
+
+func rewriteSQLiteUpserts(query string) string {
+	upsertPattern := regexp.MustCompile(`(?is)INSERT\s+INTO\s+(job_executions\s*\([^;]+?\)\s*VALUES\s*\([^;]+?\))\s*ON\s+DUPLICATE\s+KEY\s+UPDATE\s+[^;]+;`)
+
+	return upsertPattern.ReplaceAllStringFunc(query, func(statement string) string {
+		matches := upsertPattern.FindStringSubmatch(statement)
+		if len(matches) < 2 {
+			return statement
+		}
+
+		return "INSERT OR REPLACE INTO " + matches[1] + ";"
+	})
 }
