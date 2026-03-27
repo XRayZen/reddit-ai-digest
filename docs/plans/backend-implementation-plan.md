@@ -286,7 +286,7 @@
 
 ---
 
-## 7. 実装進捗状況 (2026-03-26 現在)
+## 7. 実装進捗状況 (2026-03-28 現在)
 
 このセクションは計画ではなく、現状コードを確認したうえでの進捗メモである。
 
@@ -350,17 +350,17 @@
 - [x] idempotency key と queued claim の基本テストがある
 - [x] 実行本体はまだ dummy job のまま
 
-#### Phase 9: CI / 品質ゲート
-- [x] [`.github/workflows/ci-backend.yml`](/home/kojima/ドキュメント/reddit-ai-digest/.github/workflows/ci-backend.yml)
-- [x] `buf lint`
-- [x] PR 時の `buf breaking`
-- [x] proto 再生成と生成差分チェック
-- [x] `go test ./...`
-- [x] MySQL を使った migration / seed 検証
-- [x] 実 API を起動して `apps/api/e2e` を流す backend CI がある
-- [x] PR テンプレートに proto / docs / eval チェックがある
-
-### 進行中
+#### Phase 8.5: ジョブ管理の本格実装
+- [x] [`internal/platform/jobs/jobs.go`](/home/kojima/ドキュメント/reddit-ai-digest/internal/platform/jobs/jobs.go) - GORM ベースの job repository（List / FindByIdempotencyKey / Enqueue / ClaimNextQueued / MarkCompleted / MarkFailed）
+- [x] [`internal/platform/jobs/jobs_test.go`](/home/kojima/ドキュメント/reddit-ai-digest/internal/platform/jobs/jobs_test.go) - job repository の単体テスト
+- [x] [`internal/platform/database/database.go`](/home/kojima/ドキュメント/reddit-ai-digest/internal/platform/database/database.go) - MySQL / SQLite 両対応の DB 接続抽象化
+- [x] [`internal/platform/migrate/runner.go`](/home/kojima/ドキュメント/reddit-ai-digest/internal/platform/migrate/runner.go) - migration runner（schema_migrations 管理付き、SQLite 対応）
+- [x] [`internal/platform/migrate/runner_test.go`](/home/kojima/ドキュメント/reddit-ai-digest/internal/platform/migrate/runner_test.go) - migration runner のテスト
+- [x] [`internal/platform/traceutil/trace.go`](/home/kojima/ドキュメント/reddit-ai-digest/internal/platform/traceutil/trace.go) - trace_id 発行・伝播ユーティリティ
+- [x] Enqueue 時の unique 制約違反による冪等ハンドリング
+- [x] ClaimNextQueued での MySQL row lock 前提の並行安全 claim
+- [x] Worker runner の `Run()` と `RunUntilDrained()` の二モード実装
+- [x] Worker runner テストで fake repository による claim → complete / fail の検証
 
 #### Phase 5: Web の `mock/live` 切り替え導線整備
 - [x] read 系 Connect API は実装済み
@@ -382,6 +382,16 @@
 - [x] `worker` を止めたまま queued 状態を確認する手順を docs へ反映した
 - [x] Web / API / docs の導線説明を更新した
 
+#### Phase 9: CI / 品質ゲート
+- [x] [`.github/workflows/ci-backend.yml`](/home/kojima/ドキュメント/reddit-ai-digest/.github/workflows/ci-backend.yml)
+- [x] `buf lint`
+- [x] PR 時の `buf breaking`
+- [x] proto 再生成と生成差分チェック
+- [x] `go test ./...`
+- [x] MySQL を使った migration / seed 検証
+- [x] 実 API を起動して `apps/api/e2e` を流す backend CI がある
+- [x] PR テンプレートに proto / docs / eval チェックがある
+
 ### 未着手または骨格のみ
 
 - [ ] Reddit 本接続
@@ -393,12 +403,13 @@
 
 ---
 
-## 8. 次のアクション (2026-03-26 現在)
+## 8. 次のアクション (2026-03-28 現在)
 
 このセクションでは、Section 6 の TODO を直近の着手順に圧縮して示す。
 
 ### 8.1 優先度高
 - Phase B を進め、dummy worker を本実装へ差し替えるための job 契約と責務境界を確定する
+- `internal/platform/jobs/` の job 管理基盤が揃ったため、ingestion / summarization の入出力契約を確定させる準備ができている
 
 ### 8.2 優先度中
 - Phase D の前提として、失敗分類とログ項目の統一方針を固める
@@ -420,8 +431,8 @@
 ### 9.3 DB アクセス方針は GORM で進んでいる
 当初の比較検討項目は残っているが、現実装は GORM repository に寄っている。今後この計画書で DB 方針を書く場合は、「検討中」ではなく「GORM 採用済み。ただし将来の置換余地は別途判断」に修正して扱う。
 
-### 9.4 worker は骨格を超え始めているが、本処理はまだない
-`job_executions` の enqueue、idempotency、claim、status 更新までは入っている。一方で Reddit / LLM / S3 は未接続なので、「worker 未着手」ではなく「実行基盤あり、本処理未実装」と表現するのが正確である。
+### 9.4 worker は実行基盤が本格実装済み、本処理はまだない
+`job_executions` の enqueue、idempotency、claim、status 更新までは入り、さらに `internal/platform/jobs/` に GORM ベースの共通 job repository が実装された。Enqueue 時の unique 制約違反に対する冪等ハンドリング、ClaimNextQueued での MySQL row lock 前提の並行安全 claim も入っている。一方で Reddit / LLM / S3 は未接続なので、「実行基盤あり、本処理未実装」と表現するのが正確である。
 
 ### 9.5 外部本接続は別 plan で扱う
 Reddit / LLM / S3 は API の read 系と比べて、外部規約、認証、snapshot 保持、prompt / eval、運用制約まで含めた意思決定が多い。`Phase C` を本計画に残したまま詳細化すると焦点がぼやけるため、詳細は [`docs/plans/reddit-llm-production-connection-plan.md`](/home/kojima/ドキュメント/reddit-ai-digest/docs/plans/reddit-llm-production-connection-plan.md) に分離して扱う。
@@ -516,7 +527,7 @@ Reddit / LLM / S3 は API の read 系と比べて、外部規約、認証、sna
 - [x] Worker の最小骨格が存在する
 
 ### 残タスク
-- **Phase B / D:** job 契約、可観測性の整備
+- **Phase B / D:** job 契約確定、可観測性の整備（job 管理基盤は `internal/platform/jobs/` に実装済み）
 - **Compose 実測:** Docker が使える環境で `web + api + worker + mysql` の manual checklist を再実施し、確認記録を残す
 - **別 plan 管理:** [`docs/plans/reddit-llm-production-connection-plan.md`](/home/kojima/ドキュメント/reddit-ai-digest/docs/plans/reddit-llm-production-connection-plan.md) に基づく Reddit / LLM / snapshot 本接続
 - **インフラ / worker:** 複数 worker 前提の queue 検証と本処理実装
@@ -547,11 +558,12 @@ Reddit / LLM / S3 は API の read 系と比べて、外部規約、認証、sna
 - `internal/domain/errors.go` - エラー定義
 - `internal/usecase/theme/service.go` - Theme usecase
 - `internal/usecase/article/service.go` - Article usecase
-- `internal/usecase/admin/service.go` - Admin usecase
+- `internal/usecase/admin/service.go` - Admin usecase（QueueIngestion / QueueResummarization、idempotency 制御付き）
+- `internal/usecase/admin/service_test.go` - Admin usecase テスト
 - `internal/adapter/db/content_repository.go` - Repository 実装
 - `internal/transport/connect/theme_handler.go` - Connect handler
 - `internal/transport/connect/article_handler.go` - Connect handler
-- `internal/transport/http/admin_handler.go` - REST admin handler
+- `internal/transport/http/admin_handler.go` - REST admin handler（jobs / ingestions/run / summaries/rerun）
 - `internal/infra/config/config.go` - 設定
 - `internal/infra/logger/logger.go` - ロガー
 - `internal/infra/httpserver/middleware.go` - HTTP ミドルウェア
@@ -560,14 +572,18 @@ Reddit / LLM / S3 は API の read 系と比べて、外部規約、認証、sna
 
 ### Worker (`apps/worker/`)
 - `cmd/worker/main.go` - メインワーカー
-- `internal/runner/runner.go` - ジョブランナー
+- `internal/runner/runner.go` - ジョブランナー（Run / RunUntilDrained 二モード）
+- `internal/runner/runner_test.go` - ランナーテスト（fake repository で claim → complete / fail 検証）
 - `internal/config/config.go` - 設定
 - `internal/logger/logger.go` - ロガー
 
 ### 共通 (`internal/`)
-- `platform/database/` - DB 抽象化
-- `platform/jobs/` - ジョブ管理
-- `platform/traceutil/` - trace_id ユーティリティ
+- `platform/database/database.go` - DB 接続抽象化（MySQL / SQLite 対応）
+- `platform/jobs/jobs.go` - ジョブ管理（GORM repository、Enqueue / Claim / Complete / Fail）
+- `platform/jobs/jobs_test.go` - ジョブ管理テスト
+- `platform/migrate/runner.go` - migration runner（schema_migrations 管理付き）
+- `platform/migrate/runner_test.go` - migration runner テスト
+- `platform/traceutil/trace.go` - trace_id 発行・伝播ユーティリティ
 
 ### CI/CD
 - `.github/workflows/ci-backend.yml` - バックエンド CI
@@ -575,6 +591,7 @@ Reddit / LLM / S3 は API の read 系と比べて、外部規約、認証、sna
 
 ### フロントエンド (`apps/web/`)
 - `src/lib/api/rpc-clients.ts` - Connect RPC クライアント
+- `src/app/admin/actions.ts` - Admin server actions（queueIngestion / queueResummarization）
 
 ### ドキュメント
 - `docs/architecture/api.md` - API 設計

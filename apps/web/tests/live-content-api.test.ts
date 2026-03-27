@@ -184,4 +184,66 @@ describe("live content api", () => {
       ApiRequestError,
     );
   });
+
+  it("sends ingestion requests with the admin token header and JSON body", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "job_123",
+          type: "ingest",
+          status: "queued",
+          targetLabel: "theme:software-engineering",
+          requestedAt: "Sun, 23 Mar 2026 00:00:00 GMT",
+        }),
+        {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    await liveContentApi.queueIngestion({
+      themeSlug: "software-engineering",
+      requestedBy: "web-admin",
+      idempotencyKey: "idem-123",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://example.test/api/admin/ingestions/run",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-Admin-Token": "secret-token",
+        }),
+        body: JSON.stringify({
+          themeSlug: "software-engineering",
+          requestedBy: "web-admin",
+          idempotencyKey: "idem-123",
+        }),
+      }),
+    );
+  });
+
+  it("maps admin REST failures to ApiRequestError", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ message: "invalid theme" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await expect(
+      liveContentApi.queueResummarization({
+        articleId: "missing",
+        requestedBy: "web-admin",
+        idempotencyKey: "idem-456",
+      }),
+    ).rejects.toMatchObject({
+      name: "ApiRequestError",
+      status: 400,
+      message: "invalid theme",
+    });
+  });
 });

@@ -14,6 +14,7 @@ dist/
 
 # Production
 *.tgz
+.tmp/
 
 # Misc
 .DS_Store
@@ -60,7 +61,6 @@ go.work
 
 # Build outputs
 /api/
-/internal/
 /worker/
 
 # Terraform

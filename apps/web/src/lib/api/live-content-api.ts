@@ -1,7 +1,14 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 
-import type { AdminJob, Theme, ThemeDetail } from "@/types/content";
+import type {
+  AdminJob,
+  ContentApiMode,
+  QueueIngestionInput,
+  QueueResummarizationInput,
+  Theme,
+  ThemeDetail,
+} from "@/types/content";
 
 import { ApiNotFoundError, ApiRequestError } from "@/lib/api/errors";
 import {
@@ -9,8 +16,6 @@ import {
   createThemeServiceClient,
 } from "@/lib/api/rpc-clients";
 import type { ContentApi } from "@/lib/api/types";
-
-type ContentApiMode = "mock" | "live";
 
 type ContentApiErrorPayload = {
   message?: string;
@@ -71,6 +76,16 @@ async function parseErrorMessage(response: Response): Promise<string> {
   return `Request failed: ${response.status}`;
 }
 
+function getAdminHeaders(): HeadersInit {
+  const token = getAdminToken();
+
+  return token
+    ? {
+        "X-Admin-Token": token,
+      }
+    : {};
+}
+
 export async function fetchJson<T>(
   path: string,
   init?: { headers?: HeadersInit },
@@ -83,6 +98,43 @@ export async function fetchJson<T>(
       ...init?.headers,
     },
     cache: "no-store",
+  });
+
+  if (response.status === 404) {
+    throw new ApiNotFoundError(await parseErrorMessage(response));
+  }
+
+  if (!response.ok) {
+    throw new ApiRequestError(
+      await parseErrorMessage(response),
+      response.status,
+    );
+  }
+
+  try {
+    return (await response.json()) as T;
+  } catch (error) {
+    throw new ApiRequestError(
+      error instanceof Error ? error.message : "Invalid JSON response",
+      response.status,
+    );
+  }
+}
+
+async function sendJson<T>(
+  path: string,
+  body: object,
+  init?: { headers?: HeadersInit; method?: "POST" | "PUT" | "PATCH" },
+): Promise<T> {
+  const response = await fetch(`${getBaseUrl()}${path}`, {
+    method: init?.method ?? "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...init?.headers,
+    },
+    cache: "no-store",
+    body: JSON.stringify(body),
   });
 
   if (response.status === 404) {
@@ -227,12 +279,36 @@ export const liveContentApi: ContentApi = {
 
   getAdminJobs() {
     return fetchJson<AdminJob[]>("/api/admin/jobs", {
-      headers: getAdminToken()
-        ? {
-            "X-Admin-Token": getAdminToken()!,
-          }
-        : undefined,
+      headers: getAdminHeaders(),
     });
+  },
+
+  queueIngestion(input: QueueIngestionInput) {
+    return sendJson<AdminJob>(
+      "/api/admin/ingestions/run",
+      {
+        themeSlug: input.themeSlug,
+        requestedBy: input.requestedBy,
+        idempotencyKey: input.idempotencyKey,
+      },
+      {
+        headers: getAdminHeaders(),
+      },
+    );
+  },
+
+  queueResummarization(input: QueueResummarizationInput) {
+    return sendJson<AdminJob>(
+      "/api/admin/summaries/rerun",
+      {
+        articleId: input.articleId,
+        requestedBy: input.requestedBy,
+        idempotencyKey: input.idempotencyKey,
+      },
+      {
+        headers: getAdminHeaders(),
+      },
+    );
   },
 };
 

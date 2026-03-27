@@ -1,4 +1,6 @@
 import type {
+  QueueIngestionInput,
+  QueueResummarizationInput,
   AdminJob,
   ArticleDetail,
   Theme,
@@ -23,4 +25,16 @@ export async function getArticleDetail(id: string): Promise<ArticleDetail> {
 export async function getAdminJobs(): Promise<AdminJob[]> {
   // 管理用途も同じ facade を通し、REST/gRPC の実装差し替え先をこの層に閉じ込める。
   return resolveContentApi().getAdminJobs();
+}
+
+export async function queueIngestion(
+  input: QueueIngestionInput,
+): Promise<AdminJob> {
+  return resolveContentApi().queueIngestion(input);
+}
+
+export async function queueResummarization(
+  input: QueueResummarizationInput,
+): Promise<AdminJob> {
+  return resolveContentApi().queueResummarization(input);
 }

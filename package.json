@@ -5,7 +5,7 @@
   "scripts": {
     "proto:generate": "corepack pnpm exec buf generate",
     "proto:lint": "corepack pnpm exec buf lint",
-    "proto:breaking": "corepack pnpm exec buf breaking --against '.git#branch=origin/main'",
+    "proto:breaking": "buf breaking --against '.buf-compare/packages/proto'",
     "test:go": "PATH=\"$HOME/.local/go/bin:$PATH\" go test ./...",
     "format:go": "PATH=\"$HOME/.local/go/bin:$PATH\" gofmt -w $(find apps packages -name '*.go' -print)",
     "migrate:api": "PATH=\"$HOME/.local/go/bin:$PATH\" go run ./apps/api/cmd/migrate",

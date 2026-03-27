@@ -73,23 +73,37 @@ Next.js フロントエンドです。
 
 ## セットアップ
 
-最小構成のフロントエンドは `apps/web` 単体でも起動できるが、標準導線は root の Docker Compose で実 API に接続する構成とする。
+最小構成のフロントエンドは `apps/web` 単体でも起動できる。通常の UI 開発と Storybook / E2E は `CONTENT_API_MODE=mock` を既定とし、実 API 疎通確認だけ `CONTENT_API_MODE=live` を使う。
 
-Compose 標準導線:
+`mock` と `live` の使い分け:
 
-```bash
-cp infra/compose/.env.example infra/compose/.env
-docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env up -d --build web api mysql
-```
+- `CONTENT_API_MODE=mock`
+  - 既定値
+  - Storybook、Vitest、Playwright E2E、UI 実装、障害切り分けに使う
+  - `src/mocks/fixtures/` の固定データを読むため backend に依存しない
+- `CONTENT_API_MODE=live`
+  - Compose またはローカル起動した `apps/api` に接続して実疎通を確認するときだけ使う
+  - 公開 read API は Connect、管理操作は server action 経由の REST で呼ぶ
+  - `CONTENT_API_BASE_URL` と `CONTENT_API_ADMIN_TOKEN` は server-side env に閉じ込め、browser へは露出しない
 
-Web は `CONTENT_API_MODE=live` と `CONTENT_API_BASE_URL=http://api:8080` を server-side env として受け取り、browser には内部 service 名を露出しない。
-
-単体起動:
+`mock` での単体起動:
 
 ```bash
 corepack pnpm install
 corepack pnpm --filter @reddit-ai-digest/web dev
 ```
+
+`live` での Compose 標準導線:
+
+```bash
+cp infra/compose/.env.example infra/compose/.env
+make compose-config
+make migrate
+make seed
+docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env up -d --build web api mysql
+```
+
+Web は `CONTENT_API_MODE=live` と `CONTENT_API_BASE_URL=http://api:8080` を server-side env として受け取り、browser には内部 service 名を露出しない。
 
 確認用コマンド:
 
@@ -98,6 +112,7 @@ corepack pnpm --filter @reddit-ai-digest/web lint
 corepack pnpm --filter @reddit-ai-digest/web typecheck
 corepack pnpm --filter @reddit-ai-digest/web test
 corepack pnpm --filter @reddit-ai-digest/web build-storybook
+./apps/web/scripts/check-all-local.sh
 ```
 
 Storybook / visual regression:
@@ -132,6 +147,8 @@ corepack pnpm --filter @reddit-ai-digest/web test:e2e:headed
 - `test:e2e` は production build + `next start` を `127.0.0.1:3100` で起動し、主要導線のページ遷移回帰を確認する
 - `Storybook + Playwright` は見た目回帰、`Playwright E2E` は導線回帰、`Browser Use` は探索確認に使い分ける
 - E2E は `CONTENT_API_MODE=mock` を前提に固定 fixture を使う
+- `./apps/web/scripts/check-all-local.sh` も `mock` を既定にし、live transport 回帰は Vitest 内の fetch mock で検知する
+- live のブラウザ疎通は自動化せず、Compose またはローカル起動した `web + api + mysql` に対する手動 checklist で確認する
 
 Browser Use CLI の確認:
 
@@ -185,3 +202,21 @@ sleep 2
 - UI 崩れがない
 - 必要な docs 更新がある
 - セルフレビュー済みである
+
+live 手動確認 checklist:
+
+1. `cp infra/compose/.env.example infra/compose/.env`
+2. `make compose-config`
+3. `make migrate`
+4. `make seed`
+5. `docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.override.yml --env-file infra/compose/.env up -d --build web api mysql`
+6. `http://127.0.0.1:3000/` でテーマ一覧を確認する
+7. `http://127.0.0.1:3000/themes/software-engineering` で記事一覧を確認する
+8. `http://127.0.0.1:3000/articles/se-001` で記事詳細を確認する
+9. `http://127.0.0.1:3000/admin` でテーマ選択、記事選択、収集実行、再要約実行、ジョブ一覧 refresh を確認する
+10. API ログで `trace_id` が見えることを確認する
+
+補足:
+
+- queued 状態を安定して確認するため、manual live 確認では `worker` を起動しない
+- `test:e2e` は引き続き mock 前提で運用し、live 導線は docs の checklist で固定する

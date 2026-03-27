@@ -1,7 +1,7 @@
 # Docker Compose ローカルバックエンド計画・現状検証
 
 ## 1. この文書の目的
-この文書は、`infra/compose` を中心にしたローカル backend 動作環境の計画を、2026-03-26 時点の実装に照らして更新したものである。
+この文書は、`infra/compose` を中心にしたローカル backend 動作環境の計画を、2026-03-28 時点の実装に照らして更新したものである。
 
 この文書で扱うこと:
 - Compose ベースのローカル導線がどこまで実装済みか
@@ -37,16 +37,23 @@
 - `internal/platform/jobs/jobs.go`
 - `internal/platform/jobs/jobs_test.go`
 - `internal/platform/migrate/runner.go`
+- `internal/platform/migrate/runner_test.go`（2026-03-28 追加確認）
+- `internal/platform/database/database.go`（2026-03-28 追加確認）
+- `internal/platform/traceutil/trace.go`（2026-03-28 追加確認）
 
 補足:
 - `make compose-config` は実行し、Compose 定義が解決できることを確認した
 - Docker socket 制約のため、この環境では `docker compose up` の実起動までは実施できていない
 - 代わりに `apps/api` と `apps/web` をローカル直接起動し、`CONTENT_API_MODE=live` で公開画面と管理画面の疎通を実測した
 
+検証時の commit 範囲:
+- 2026-03-26 以降の commit（`6ee5ac9` 〜 `b0cbed5`）を `git log` で確認した
+- 最大の変更は `b0cbed5`（"Implement job management system with database integration"）である
+
 ---
 
 ## 3. 結論サマリ
-現状は「Compose の土台と MySQL 前提の backend 導線は概ね実装済み」であり、`web` の live 読み取り導線と admin live 操作も実装済みである。一方で、「Compose 実起動の最終記録」と「Go テスト完全 MySQL 化」と「複数 worker を前提にした job queue 検証」は未完了である。
+現状は「Compose の土台と MySQL 前提の backend 導線は概ね実装済み」であり、`web` の live 読み取り導線と admin live 操作も実装済みである。2026-03-27 の commit `b0cbed5` で job management system が大きく前進し、`ClaimNextQueued` の transaction 化と並行 claim テストが追加された。一方で、「Compose 実起動の最終記録」と「Go テスト完全 MySQL 化」と「複数 worker 実起動検証」は未完了である。
 
 ステータス要約:
 - Phase 0: 完了
@@ -56,7 +63,7 @@
 - Phase 4: 概ね完了
 - Phase 5: 未完了
 - Phase 6: 概ね完了
-- Phase 7: 未完了
+- Phase 7: 一部完了（transaction 化と並行テスト追加で前進、MySQL ロック実証と複数 worker 実起動は残り）
 - Phase 8: 一部完了
 
 ---
@@ -121,6 +128,20 @@ Docker Compose の実起動はこの環境で行えなかったが、`apps/api` 
 - queued job は `ingest` と `resummarize` の両方で追加された
 - queued 状態確認のため、worker は起動していない
 
+### 4.9 DB 接続の共通化モジュールが追加された（2026-03-28 確認）
+- `internal/platform/database/database.go` が新設され、mysql / sqlite の接続切替を一元化している
+- 各テストの `setupRepository` 等はこのモジュールを使って SQLite in-memory を開いている
+- 正本である MySQL と fallback である SQLite の分岐が 1 箇所に集約されている
+
+### 4.10 trace ID ヘルパーが追加された（2026-03-28 確認）
+- `internal/platform/traceutil/trace.go` が新設され、`NewID`、`WithTraceID`、`FromContext`、`FromHeaderOrNew` を提供している
+- API ログに出る `trace_id` の生成元として機能する
+
+### 4.11 migration runner テストが追加された（2026-03-28 確認）
+- `internal/platform/migrate/runner_test.go` が新設された
+- MySQL DDL と SQLite DDL の両方で `schema_migrations` テーブルが正しく作れることを検証している
+- SQLite テストで本番用 migration を直接適用し、方言差分の取りこぼしを防いでいる
+
 ---
 
 ## 5. 未完了または要再確認の事項
@@ -148,18 +169,24 @@ Docker Compose の実起動はこの環境で行えなかったが、`apps/api` 
 - CI の migration / seed / API E2E は MySQL 化されている
 - ただし `corepack pnpm test:go` の全体は、依然として SQLite ベース unit test を含む
 
-### 5.3 job queue の複数 worker 前提検証は未完了
-job queue 周辺には前進があるが、当初ゴールには達していない。
+### 5.3 job queue の複数 worker 前提検証は前進したが未完了
+2026-03-27 の commit `b0cbed5` で job management system が実装され、前進した。
 
 確認できたこと:
 - `internal/platform/jobs/jobs.go` で enqueue 時の idempotency 競合は既存 job 再取得に寄せている
-- `ClaimNextQueued` は `RowsAffected == 0` を競合としてリトライする
+- `ClaimNextQueued` は **transaction 内**で claim を行い、`RowsAffected == 0` を競合として最大 8 回リトライする
+- `TestClaimNextQueuedOnlyClaimsJobOnce` で並行 claim のテストが追加された（2 goroutine で同時 claim → 1 件だけ成功、もう 1 件は `ErrNoQueuedJobs` を確認）
+- `List`、`FindByIdempotencyKey`、`MarkCompleted`、`MarkFailed` も実装済み
 
 未完了と判断した理由:
-- `ClaimNextQueued` は `SELECT ... FOR UPDATE` を使っていない
-- テストは `internal/platform/jobs/jobs_test.go` の SQLite 並行テストであり、MySQL のロック挙動を直接検証していない
+- `ClaimNextQueued` は `SELECT ... FOR UPDATE` を使っておらず、transaction 内の `First` + `Updates` の optimistic な排他に頼っている
+- 並行テストは SQLite in-memory 上で実行されており、MySQL の InnoDB ロック挙動を直接検証していない
 - `apps/api/scripts/check-all-local.sh` は worker を起動せず、queued 状態固定の E2E に寄せている
-- 複数 worker 実起動での重複処理防止確認までは入っていない
+- 複数 worker コンテナを同時起動しての重複処理防止確認までは入っていない
+
+Phase 7 を「一部完了」とする根拠:
+- transaction 化と並行テストで単一 DB 接続での排他は検証された
+- MySQL ロック実証と複数 worker 実起動検証が残る
 
 ### 5.4 ドキュメント更新は概ね完了
 以下は今回の実装結果に合わせて更新済み、または現行導線と整合している。
@@ -240,11 +267,13 @@ job queue 周辺には前進があるが、当初ゴールには達していな�
 - `go test ./...` 自体はまだ SQLite ベース test を含むため、Phase 5 と連動して最終完了にする
 
 ### Phase 7: job queue の複数 worker 対応
-ステータス: 未完了
+ステータス: 一部完了
 
 根拠:
-- idempotency 再取得はある
-- ただし MySQL ロックベースの claim 実証と複数 worker 実証が不足している
+- idempotency 再取得は実装済み
+- `ClaimNextQueued` は transaction 内で claim し、`RowsAffected == 0` で競合リトライする
+- 並行 claim テスト `TestClaimNextQueuedOnlyClaimsJobOnce` が SQLite 上で存在する
+- ただし MySQL ロックベースの claim 実証と複数 worker 実起動実証が不足している
 
 ### Phase 8: docs / 運用導線更新
 ステータス: 概ね完了
@@ -340,9 +369,11 @@ corepack pnpm test:e2e:api
 - [ ] MySQL 前提の並行 enqueue テストを追加する
 - [ ] 複数 worker 実起動で job claim の重複防止を確認する検証を追加する
 - [ ] `apps/api/scripts/check-all-local.sh` の守備範囲と、worker 実起動検証の分担を明確にする
+- [x] `ClaimNextQueued` を transaction 内で実行し `RowsAffected == 0` で競合リトライする（b0cbed5）
+- [x] 並行 claim テスト `TestClaimNextQueuedOnlyClaimsJobOnce` を追加する（b0cbed5）
 
 対応する未完了判定:
-- Phase 7: 未完了
+- Phase 7: 一部完了
 
 ### 8.4 README / docs の最終整合
 - [ ] `README.md` のローカル Compose 導線に Compose 実起動記録の追記が要るか最終確認する
@@ -371,4 +402,5 @@ corepack pnpm test:e2e:api
 - 関連 docs と README 群が最新導線に揃っている
 
 補足:
-- 2026-03-26 時点では、このうち未達は「Compose 実起動の確認記録」「Go テストの MySQL 統一」「複数 worker 検証」である
+- 2026-03-28 時点では、このうち未達は「Compose 実起動の確認記録」「Go テストの MySQL 統一」「複数 worker 実起動検証」である
+- Phase 7 は transaction 化と SQLite 並行テストで前進したが、MySQL ロック実証と複数 worker 実起動検証が残る

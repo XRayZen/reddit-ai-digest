@@ -1,4 +1,5 @@
 import type {
+  AdminArticleOptionsByTheme,
   AdminJob,
   ArticleDetail,
   Theme,
@@ -304,4 +305,17 @@ export function getArticleFixture(id: string): ArticleDetail | null {
 
 export function listAdminJobs(): AdminJob[] {
   return adminJobs;
+}
+
+export function listAdminArticleOptionsByTheme(): AdminArticleOptionsByTheme {
+  return Object.fromEntries(
+    Object.values(themeDetails).map((theme) => [
+      theme.slug,
+      theme.articles.map((article) => ({
+        id: article.id,
+        title: article.title,
+        themeSlug: article.themeSlug,
+      })),
+    ]),
+  );
 }

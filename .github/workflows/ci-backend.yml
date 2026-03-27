@@ -28,7 +28,7 @@ on:
       # 依存関係ファイル
       - "go.mod"
       - "go.sum"
-      - "buf.yaml"
+      - "buf.work.yaml"
       - "buf.gen.yaml"
       - "Makefile"
       - "package.json"
@@ -45,7 +45,7 @@ on:
       - ".github/workflows/ci-backend.yml"
       - "go.mod"
       - "go.sum"
-      - "buf.yaml"
+      - "buf.work.yaml"
       - "buf.gen.yaml"
       - "Makefile"
       - "package.json"
@@ -119,13 +119,30 @@ jobs:
         run: corepack pnpm proto:lint
 
       # 後方互換性チェック（PR 時のみ実行）
-      # main ブランチの proto に対して破壊的変更がないか検証
-      - name: Fetch main branch for buf breaking
+      # PR の base ブランチの proto に対して破壊的変更がないか検証
+      - name: Fetch base branch for buf breaking
         if: github.event_name == 'pull_request'
-        run: git fetch origin main:refs/remotes/origin/main
+        run: git fetch origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+
+      - name: Prepare comparison directory for buf breaking
+        id: prepare_buf_breaking
+        if: github.event_name == 'pull_request'
+        run: |
+          base_ref="origin/${{ github.base_ref }}"
+          if git cat-file -e "${base_ref}:packages/proto/buf.yaml"; then
+            mkdir -p .buf-compare/packages/proto
+            git archive "${base_ref}" packages/proto | tar -x -C .buf-compare
+            # 比較元 branch に module 設定がある場合だけ、Buf breaking 用の比較ディレクトリを構築する。
+            git show "${base_ref}:packages/proto/buf.yaml" > .buf-compare/packages/proto/buf.yaml
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            # proto module 導入前の branch では比較元を組み立てられないため、breaking を安全に skip する。
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping buf breaking because ${base_ref} does not contain packages/proto/buf.yaml"
+          fi
 
       - name: Buf breaking
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.prepare_buf_breaking.outputs.should_run == 'true'
         run: corepack pnpm proto:breaking
 
       # コード生成（生成結果がコミット済みと一致するか確認）
