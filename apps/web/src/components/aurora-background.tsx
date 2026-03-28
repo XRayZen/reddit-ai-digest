@@ -47,12 +47,12 @@ export function AuroraBackground() {
         className="aurora-layer"
         style={{
           width: "76vw",
-          height: "16vh",
-          top: "22%",
+          height: "18vh",
+          top: "20%",
           left: "-8%",
           borderRadius: "999px",
-          background: `linear-gradient(90deg, transparent 0%, var(--aurora-cyan) 18%, var(--aurora-blue) 42%, var(--aurora-indigo) 62%, var(--aurora-rose) 78%, transparent 100%)`,
-          animation: `aurora-ribbon-pass 18s ease-in-out infinite`,
+          background: `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.06) 10%, var(--aurora-cyan) 22%, var(--aurora-blue) 44%, var(--aurora-indigo) 64%, var(--aurora-rose) 80%, transparent 100%)`,
+          animation: `aurora-ribbon-pass 12s ease-in-out infinite`,
         }}
       />
 
