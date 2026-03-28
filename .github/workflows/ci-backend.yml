@@ -172,7 +172,9 @@ jobs:
       # 生成コードがコミットされているか検証
       # ここで差分がある場合、開発者が proto:generate の結果をコミットし忘れている
       - name: Check generated code is committed
-        run: git diff --exit-code
+        # Buf breaking 比較用の .buf-compare は CI 実行中に生成する一時物なので、
+        # proto 生成物のコミット漏れ判定には含めない。
+        run: git diff --exit-code -- . ':(exclude).buf-compare'
 
       # -------------------------------------------------------------------------
       # Go テスト
