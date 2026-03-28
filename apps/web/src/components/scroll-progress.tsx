@@ -1,15 +1,24 @@
 "use client";
 
+import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { motion, useReducedMotion, useScroll, useSpring } from "motion/react";
 
 export function ScrollProgress() {
   const { scrollYProgress } = useScroll();
   const reduceMotion = useReducedMotion();
+  const pathname = usePathname();
+
   const scaleX = useSpring(scrollYProgress, {
-    stiffness: 220,
-    damping: 30,
-    mass: 0.18,
+    stiffness: 800,
+    damping: 40,
+    mass: 0.1,
   });
+
+  // ページ遷移時に即座に 0 にリセット
+  useEffect(() => {
+    scaleX.set(0);
+  }, [pathname, scaleX]);
 
   return (
     <motion.div

@@ -129,30 +129,162 @@
   color: var(--foreground);
 }
 
-body::before {
-  content: "";
-  position: fixed;
+/* ── Aurora 背景トークン ──
+   dark-first。薄い虹がゆっくり流れる低彩度・低不透明度の演出。 */
+:root {
+  --aurora-cyan: rgba(34, 211, 238, 0.4);
+  --aurora-teal: rgba(45, 212, 191, 0.36);
+  --aurora-blue: rgba(96, 165, 250, 0.38);
+  --aurora-indigo: rgba(129, 140, 248, 0.31);
+  --aurora-rose: rgba(251, 113, 133, 0.24);
+  --aurora-duration-a: 32s;
+  --aurora-duration-b: 38s;
+  --aurora-duration-c: 44s;
+}
+
+.light {
+  --aurora-cyan: rgba(14, 116, 144, 0.12);
+  --aurora-teal: rgba(13, 148, 136, 0.1);
+  --aurora-blue: rgba(37, 99, 235, 0.11);
+  --aurora-indigo: rgba(79, 70, 229, 0.09);
+  --aurora-rose: rgba(225, 29, 72, 0.07);
+}
+
+/* ── Aurora keyframes ──
+   transform/opacity のみアニメーションし、paint/layout 負荷を最小化。 */
+@keyframes aurora-drift-a {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.42;
+  }
+  33% {
+    transform: translate(8%, 12%) scale(1.05);
+    opacity: 0.56;
+  }
+  66% {
+    transform: translate(-4%, 6%) scale(0.97);
+    opacity: 0.4;
+  }
+}
+
+@keyframes aurora-drift-b {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.36;
+  }
+  40% {
+    transform: translate(-10%, -6%) scale(1.08);
+    opacity: 0.5;
+  }
+  70% {
+    transform: translate(5%, -10%) scale(0.96);
+    opacity: 0.34;
+  }
+}
+
+@keyframes aurora-drift-c {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.28;
+  }
+  50% {
+    transform: translate(3%, -4%) scale(1.02);
+    opacity: 0.42;
+  }
+}
+
+@keyframes aurora-ribbon-pass {
+  0%,
+  100% {
+    transform: translate(-22%, 18%) rotate(-10deg) scaleX(0.92) scaleY(0.92);
+    opacity: 0;
+  }
+  14% {
+    transform: translate(-10%, 10%) rotate(-9deg) scaleX(0.98) scaleY(0.96);
+    opacity: 0.16;
+  }
+  28% {
+    transform: translate(2%, 2%) rotate(-8deg) scaleX(1.06) scaleY(1.08);
+    opacity: 0.72;
+  }
+  36% {
+    transform: translate(9%, -1%) rotate(-8deg) scaleX(1.12) scaleY(1.14);
+    opacity: 0.9;
+  }
+  48% {
+    transform: translate(17%, -7%) rotate(-7deg) scaleX(1.04) scaleY(1.02);
+    opacity: 0.24;
+  }
+  62% {
+    transform: translate(25%, -11%) rotate(-6deg) scaleX(0.98) scaleY(0.96);
+    opacity: 0.04;
+  }
+}
+
+/* ── Aurora レイヤー共通 ── */
+.aurora-layer {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(92px);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+/* ── Dark veil: aurora 発色を抑える薄膜 ── */
+.aurora-veil {
+  position: absolute;
   inset: 0;
-  z-index: -2;
   background:
     radial-gradient(
-      circle at 12% 18%,
-      rgba(125, 211, 252, 0.14),
-      transparent 22%
+      ellipse at 50% 35%,
+      rgba(255, 255, 255, 0.03),
+      transparent 38%
     ),
     radial-gradient(
-      circle at 86% 14%,
-      rgba(45, 212, 191, 0.12),
-      transparent 18%
-    ),
-    radial-gradient(
-      circle at 50% 100%,
-      rgba(56, 189, 248, 0.1),
-      transparent 24%
+      ellipse at 50% 40%,
+      transparent 20%,
+      rgba(7, 17, 30, 0.32) 100%
     );
   pointer-events: none;
 }
 
+/* ── reduced-motion: 非本質アニメーション停止 ── */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-layer {
+    animation: none !important;
+    opacity: 0.4;
+  }
+}
+
+/* ── reduced-transparency: 対応ブラウザで透明度を低減 ── */
+@media (prefers-reduced-transparency: reduce) {
+  .aurora-layer {
+    filter: blur(40px);
+    opacity: 0.3;
+  }
+  .aurora-veil {
+    background: radial-gradient(
+      ellipse at 50% 40%,
+      transparent 20%,
+      rgba(7, 17, 30, 0.7) 100%
+    );
+  }
+}
+
+/* モバイルでは aurora レイヤーのサイズと不透明度を下げる */
+@media (max-width: 820px) {
+  .aurora-layer {
+    filter: blur(72px);
+    opacity: 0.62;
+  }
+}
+
+/* ── 既存擬似要素 ──
+   body::before のグローは AuroraBackground component へ移行したため、
+   ここでは grid texture のみ残す。 */
 body::after {
   content: "";
   position: fixed;

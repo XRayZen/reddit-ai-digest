@@ -16,29 +16,67 @@ name: ci-web
 # =============================================================================
 on:
   pull_request:
-    paths:
-      # Web UI の実行結果に影響する入力だけを対象にして、無関係な PR での実行を避ける。
-      - "apps/web/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - ".github/workflows/ci-web.yml"
   push:
     branches:
       - main
       - develop
-    paths:
-      - "apps/web/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - ".github/workflows/ci-web.yml"
 
 # =============================================================================
 # ジョブ定義
 # =============================================================================
 jobs:
-  ci-web:
+  # required check を pending のまま残さないため、workflow 自体は常に起動し、
+  # web に関係する変更かどうかだけを最初に軽量判定する。
+  detect-web-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.detect.outputs.should_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # push でも PR でも差分比較元の commit を確実に参照できるように履歴を取得する。
+          fetch-depth: 0
+
+      - name: Detect web-related changes
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            base_sha="$PR_BASE_SHA"
+          else
+            base_sha="$PUSH_BEFORE_SHA"
+          fi
+
+          # branch 作成直後など before がゼロ埋めの push では、直前 commit を比較元に退避する。
+          if [ -z "$base_sha" ] || [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
+            base_sha="$(git rev-parse "${CURRENT_SHA}^" 2>/dev/null || true)"
+          fi
+
+          if [ -n "$base_sha" ]; then
+            changed_files="$(git diff --name-only "$base_sha" "$CURRENT_SHA")"
+          else
+            # 比較元が取れない最初の commit では安全側に倒して web CI を実行する。
+            changed_files="__force_run__"
+          fi
+
+          printf '%s\n' "$changed_files"
+
+          if printf '%s\n' "$changed_files" | grep -Eq '^(apps/web/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.github/workflows/ci-web\.yml$)'; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Playwright などの重い web CI は関連変更があるときだけ実行し、無関係な PR での待ち時間を避ける。
+  web-checks:
+    needs: detect-web-changes
+    if: needs.detect-web-changes.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:
@@ -175,3 +213,31 @@ jobs:
         run: |
           echo "One or more web-ui checks failed."
           exit 1
+
+  # branch protection が待つ context 名をこの job で固定し、
+  # 実ジョブの実行有無にかかわらず最終結果を必ず GitHub へ報告する。
+  ci-web:
+    needs:
+      - detect-web-changes
+      - web-checks
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete required web check
+        env:
+          SHOULD_RUN: ${{ needs.detect-web-changes.outputs.should_run }}
+          WEB_RESULT: ${{ needs.web-checks.result }}
+        run: |
+          set -eu
+
+          if [ "$SHOULD_RUN" != "true" ]; then
+            echo "No web-related changes detected. Reporting success without running heavy web CI."
+            exit 0
+          fi
+
+          if [ "$WEB_RESULT" != "success" ]; then
+            echo "web-checks did not succeed: $WEB_RESULT"
+            exit 1
+          fi
+
+          echo "web-checks succeeded."

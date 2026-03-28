@@ -102,6 +102,46 @@ test.describe("apps/web user flows", () => {
     ).toBeVisible();
   });
 
+  test("スクロールプログレスがページ遷移後にリセットされる", async ({
+    page,
+  }) => {
+    // スクロールでバーが伸び、ページ遷移直後に 0 に戻ることを確認する。
+    await page.goto("/", { waitUntil: "networkidle" });
+
+    const progressBar = page.locator(".fixed.top-0.z-50.h-1");
+
+    // 下へスクロール → バーが伸びる
+    await page.evaluate(() => window.scrollTo(0, 800));
+    await page.waitForTimeout(300);
+
+    const scrolledWidth = await progressBar.evaluate(
+      (el) => el.getBoundingClientRect().width,
+    );
+    expect(scrolledWidth).toBeGreaterThan(0);
+
+    // 最下部までスクロール → バーが 100% に到達する
+    await page.evaluate(() =>
+      window.scrollTo(0, document.documentElement.scrollHeight),
+    );
+    await page.waitForTimeout(300);
+
+    const viewportWidth = page.viewportSize()!.width;
+    const fullWidth = await progressBar.evaluate(
+      (el) => el.getBoundingClientRect().width,
+    );
+    expect(fullWidth).toBe(viewportWidth);
+
+    // 別ページへ遷移 → バーがリセットされる
+    await page.getByRole("link", { name: "Admin" }).click();
+    await expect(page).toHaveURL(/\/admin$/);
+    await page.waitForTimeout(200);
+
+    const afterNavWidth = await progressBar.evaluate(
+      (el) => el.getBoundingClientRect().width,
+    );
+    expect(afterNavWidth).toBe(0);
+  });
+
   test("mobile admin 画面でも状態と実行時刻を確認できる", async ({ page }) => {
     // mobile ではテーブル横スクロールに頼らず、カード表示だけで履歴確認を完了させる。
     await page.setViewportSize({ width: 390, height: 844 });

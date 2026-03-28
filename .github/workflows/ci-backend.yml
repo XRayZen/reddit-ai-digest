@@ -15,47 +15,67 @@ name: ci-backend
 # =============================================================================
 on:
   pull_request:
-    paths:
-      # バックエンドアプリケーション
-      - "apps/api/**"
-      - "apps/worker/**"
-      # 共有 Go モジュール
-      - "internal/**"
-      # Protocol Buffers 定義（変更時はコード生成も検証）
-      - "packages/proto/**"
-      # CI 設定
-      - ".github/workflows/ci-backend.yml"
-      # 依存関係ファイル
-      - "go.mod"
-      - "go.sum"
-      - "buf.work.yaml"
-      - "buf.gen.yaml"
-      - "Makefile"
-      - "package.json"
-      - "pnpm-lock.yaml"
   push:
     branches:
       - main
       - develop
-    paths:      # PR と同じパスを監視
-      - "apps/api/**"
-      - "apps/worker/**"
-      - "internal/**"
-      - "packages/proto/**"
-      - ".github/workflows/ci-backend.yml"
-      - "go.mod"
-      - "go.sum"
-      - "buf.work.yaml"
-      - "buf.gen.yaml"
-      - "Makefile"
-      - "package.json"
-      - "pnpm-lock.yaml"
 
 # =============================================================================
 # ジョブ定義
 # =============================================================================
 jobs:
-  ci-backend:
+  # required check を pending のまま残さないため、workflow 自体は常に起動し、
+  # backend に関係する変更かどうかだけを最初に軽量判定する。
+  detect-backend-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.detect.outputs.should_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # push でも PR でも差分比較元の commit を確実に参照できるように履歴を取得する。
+          fetch-depth: 0
+
+      - name: Detect backend-related changes
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            base_sha="$PR_BASE_SHA"
+          else
+            base_sha="$PUSH_BEFORE_SHA"
+          fi
+
+          # branch 作成直後など before がゼロ埋めの push では、直前 commit を比較元に退避する。
+          if [ -z "$base_sha" ] || [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
+            base_sha="$(git rev-parse "${CURRENT_SHA}^" 2>/dev/null || true)"
+          fi
+
+          if [ -n "$base_sha" ]; then
+            changed_files="$(git diff --name-only "$base_sha" "$CURRENT_SHA")"
+          else
+            # 比較元が取れない最初の commit では安全側に倒して backend CI を実行する。
+            changed_files="__force_run__"
+          fi
+
+          printf '%s\n' "$changed_files"
+
+          if printf '%s\n' "$changed_files" | grep -Eq '^(apps/api/|apps/worker/|internal/|packages/proto/|\.github/workflows/ci-backend\.yml$|go\.mod$|go\.sum$|buf\.work\.yaml$|buf\.gen\.yaml$|Makefile$|package\.json$|pnpm-lock\.yaml$)'; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # 重い backend CI は関連変更があるときだけ実行し、無関係な PR での待ち時間を避ける。
+  backend-checks:
+    needs: detect-backend-changes
+    if: needs.detect-backend-changes.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20  # ステップが失敗しても 20 分でタイムアウト
     services:
@@ -152,7 +172,9 @@ jobs:
       # 生成コードがコミットされているか検証
       # ここで差分がある場合、開発者が proto:generate の結果をコミットし忘れている
       - name: Check generated code is committed
-        run: git diff --exit-code
+        # Buf breaking 比較用の .buf-compare は CI 実行中に生成する一時物なので、
+        # proto 生成物のコミット漏れ判定には含めない。
+        run: git diff --exit-code -- . ':(exclude).buf-compare'
 
       # -------------------------------------------------------------------------
       # Go テスト
@@ -207,3 +229,31 @@ jobs:
           if [ -f /tmp/api-e2e.log ]; then
             cat /tmp/api-e2e.log
           fi
+
+  # branch protection が待つ context 名をこの job で固定し、
+  # 実ジョブの実行有無にかかわらず最終結果を必ず GitHub へ報告する。
+  ci-backend:
+    needs:
+      - detect-backend-changes
+      - backend-checks
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Complete required backend check
+        env:
+          SHOULD_RUN: ${{ needs.detect-backend-changes.outputs.should_run }}
+          BACKEND_RESULT: ${{ needs.backend-checks.result }}
+        run: |
+          set -eu
+
+          if [ "$SHOULD_RUN" != "true" ]; then
+            echo "No backend-related changes detected. Reporting success without running heavy backend CI."
+            exit 0
+          fi
+
+          if [ "$BACKEND_RESULT" != "success" ]; then
+            echo "backend-checks did not succeed: $BACKEND_RESULT"
+            exit 1
+          fi
+
+          echo "backend-checks succeeded."
