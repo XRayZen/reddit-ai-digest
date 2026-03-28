@@ -56,6 +56,22 @@ export function AuroraBackground() {
         }}
       />
 
+      {/* Rainbow line: 背景の上を一筋だけ流れる、認識しやすい虹の帯 */}
+      <div
+        className="aurora-ribbon-line"
+        style={{
+          width: "72vw",
+          height: "6px",
+          top: "28%",
+          left: "4%",
+          background:
+            "linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.18) 8%, rgba(34, 211, 238, 0.96) 18%, rgba(96, 165, 250, 1) 38%, rgba(129, 140, 248, 0.96) 58%, rgba(251, 113, 133, 0.88) 80%, transparent 100%)",
+          boxShadow:
+            "0 0 12px rgba(255, 255, 255, 0.24), 0 0 20px rgba(34, 211, 238, 0.55), 0 0 32px rgba(96, 165, 250, 0.42), 0 0 44px rgba(251, 113, 133, 0.28)",
+          animation: "aurora-line-sweep 9s ease-in-out infinite",
+        }}
+      />
+
       {/* Layer D: 下辺に広い薄膜。ほぼ静止に近い速度で揺らす */}
       <div
         className="aurora-layer"
