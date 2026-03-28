@@ -1,6 +1,7 @@
 import type { Preview } from "@storybook/nextjs-vite";
 import React, { type ReactNode } from "react";
 
+import { AuroraBackground } from "../src/components/aurora-background";
 import { Header } from "../src/components/header";
 import { ScrollProgress } from "../src/components/scroll-progress";
 import { ThemeProvider } from "../src/components/theme-provider";
@@ -28,6 +29,7 @@ function StorybookProviders({
         <div
           className={`${appFontClassName} min-h-screen bg-background text-foreground antialiased`}
         >
+          <AuroraBackground />
           <ScrollProgress />
           {children}
         </div>

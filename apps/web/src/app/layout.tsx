@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import { AuroraBackground } from "@/components/aurora-background";
 import { Header } from "@/components/header";
 import { ScrollProgress } from "@/components/scroll-progress";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -40,6 +41,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <StoreProvider>
+            <AuroraBackground />
             <ScrollProgress />
             <main className="page-shell">
               <Header />
