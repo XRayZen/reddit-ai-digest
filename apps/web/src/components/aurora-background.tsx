@@ -20,11 +20,11 @@ export function AuroraBackground() {
       <div
         className="aurora-layer"
         style={{
-          width: "65vw",
-          height: "55vh",
-          top: "-10%",
-          left: "-8%",
-          background: `radial-gradient(ellipse at 40% 35%, var(--aurora-cyan), var(--aurora-teal) 50%, transparent 75%)`,
+          width: "74vw",
+          height: "62vh",
+          top: "-12%",
+          left: "-12%",
+          background: `radial-gradient(ellipse at 40% 35%, var(--aurora-cyan), var(--aurora-teal) 52%, transparent 78%)`,
           animation: `aurora-drift-a var(--aurora-duration-a) ease-in-out infinite`,
         }}
       />
@@ -33,24 +33,38 @@ export function AuroraBackground() {
       <div
         className="aurora-layer"
         style={{
-          width: "55vw",
-          height: "50vh",
-          top: "-5%",
-          right: "-10%",
-          background: `radial-gradient(ellipse at 55% 40%, var(--aurora-blue), var(--aurora-indigo) 55%, transparent 78%)`,
+          width: "62vw",
+          height: "54vh",
+          top: "-6%",
+          right: "-12%",
+          background: `radial-gradient(ellipse at 55% 40%, var(--aurora-blue), var(--aurora-indigo) 58%, transparent 80%)`,
           animation: `aurora-drift-b var(--aurora-duration-b) ease-in-out infinite`,
         }}
       />
 
-      {/* Layer C: 下辺に広い薄膜。ほぼ静止に近い速度で揺らす */}
+      {/* Layer C: 一瞬だけ虹が走る細い帯。常時は抑え、通過時だけ見えるようにする */}
       <div
         className="aurora-layer"
         style={{
-          width: "90vw",
-          height: "40vh",
-          bottom: "-12%",
-          left: "5%",
-          background: `radial-gradient(ellipse at 50% 60%, var(--aurora-teal), var(--aurora-rose) 60%, transparent 80%)`,
+          width: "76vw",
+          height: "16vh",
+          top: "22%",
+          left: "-8%",
+          borderRadius: "999px",
+          background: `linear-gradient(90deg, transparent 0%, var(--aurora-cyan) 18%, var(--aurora-blue) 42%, var(--aurora-indigo) 62%, var(--aurora-rose) 78%, transparent 100%)`,
+          animation: `aurora-ribbon-pass 18s ease-in-out infinite`,
+        }}
+      />
+
+      {/* Layer D: 下辺に広い薄膜。ほぼ静止に近い速度で揺らす */}
+      <div
+        className="aurora-layer"
+        style={{
+          width: "100vw",
+          height: "48vh",
+          bottom: "-15%",
+          left: "0%",
+          background: `radial-gradient(ellipse at 50% 58%, var(--aurora-teal), var(--aurora-rose) 64%, transparent 84%)`,
           animation: `aurora-drift-c var(--aurora-duration-c) ease-in-out infinite`,
         }}
       />
