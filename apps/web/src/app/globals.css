@@ -153,7 +153,8 @@
 /* ── Aurora keyframes ──
    transform/opacity のみアニメーションし、paint/layout 負荷を最小化。 */
 @keyframes aurora-drift-a {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(0, 0) scale(1);
     opacity: 0.42;
   }
@@ -168,7 +169,8 @@
 }
 
 @keyframes aurora-drift-b {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(0, 0) scale(1);
     opacity: 0.36;
   }
@@ -183,7 +185,8 @@
 }
 
 @keyframes aurora-drift-c {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(0, 0) scale(1);
     opacity: 0.28;
   }
@@ -194,7 +197,8 @@
 }
 
 @keyframes aurora-ribbon-pass {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(-22%, 18%) rotate(-10deg) scaleX(0.92) scaleY(0.92);
     opacity: 0;
   }
@@ -220,38 +224,12 @@
   }
 }
 
-@keyframes aurora-line-sweep {
-  0%, 100% {
-    transform: translate(-16%, 10%) rotate(-8deg) scaleX(0.96);
-    opacity: 0.18;
-  }
-  35% {
-    transform: translate(2%, 2%) rotate(-8deg) scaleX(1.02);
-    opacity: 0.5;
-  }
-  50% {
-    transform: translate(8%, -1%) rotate(-8deg) scaleX(1.04);
-    opacity: 0.78;
-  }
-  68% {
-    transform: translate(16%, -6%) rotate(-7deg) scaleX(1);
-    opacity: 0.34;
-  }
-}
-
 /* ── Aurora レイヤー共通 ── */
 .aurora-layer {
   position: absolute;
   border-radius: 50%;
   filter: blur(92px);
   pointer-events: none;
-  mix-blend-mode: screen;
-}
-
-.aurora-ribbon-line {
-  position: absolute;
-  pointer-events: none;
-  filter: blur(10px);
   mix-blend-mode: screen;
 }
 
@@ -288,7 +266,11 @@
     opacity: 0.3;
   }
   .aurora-veil {
-    background: radial-gradient(ellipse at 50% 40%, transparent 20%, rgba(7, 17, 30, 0.7) 100%);
+    background: radial-gradient(
+      ellipse at 50% 40%,
+      transparent 20%,
+      rgba(7, 17, 30, 0.7) 100%
+    );
   }
 }
 

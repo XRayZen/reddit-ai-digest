@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 
 import { AuroraBackground } from "@/components/aurora-background";
 
@@ -9,11 +9,11 @@ describe("AuroraBackground", () => {
     expect(wrapper).toHaveAttribute("aria-hidden", "true");
   });
 
-  it("3 層の aurora レイヤーと 1 枚の veil が描画される", () => {
+  it("4 層の aurora レイヤーと 1 枚の veil が描画される", () => {
     const { container } = render(<AuroraBackground />);
     const layers = container.querySelectorAll(".aurora-layer");
     const veils = container.querySelectorAll(".aurora-veil");
-    expect(layers).toHaveLength(3);
+    expect(layers).toHaveLength(4);
     expect(veils).toHaveLength(1);
   });
 

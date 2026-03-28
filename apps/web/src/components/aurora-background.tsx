@@ -4,7 +4,7 @@
  * AuroraBackground
  *
  * dark-first な公開 UI の背景に、薄い虹色がゆっくり流れる aurora 演出を追加する。
- * - 固定フルスクリーンの装飾レイヤー (2〜3 層) + dark veil
+ * - 固定フルスクリーンの装飾レイヤー (4 層) + dark veil
  * - aria-hidden, pointer-events: none で本文操作を阻害しない
  * - animation は transform / opacity のみ (paint/layout 負荷最小化)
  * - prefers-reduced-motion 時は停止 (globals.css で制御)
@@ -53,22 +53,6 @@ export function AuroraBackground() {
           borderRadius: "999px",
           background: `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.06) 10%, var(--aurora-cyan) 22%, var(--aurora-blue) 44%, var(--aurora-indigo) 64%, var(--aurora-rose) 80%, transparent 100%)`,
           animation: `aurora-ribbon-pass 12s ease-in-out infinite`,
-        }}
-      />
-
-      {/* Rainbow line: 背景の上を一筋だけ流れる、認識しやすい虹の帯 */}
-      <div
-        className="aurora-ribbon-line"
-        style={{
-          width: "72vw",
-          height: "6px",
-          top: "28%",
-          left: "4%",
-          background:
-            "linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.18) 8%, rgba(34, 211, 238, 0.96) 18%, rgba(96, 165, 250, 1) 38%, rgba(129, 140, 248, 0.96) 58%, rgba(251, 113, 133, 0.88) 80%, transparent 100%)",
-          boxShadow:
-            "0 0 12px rgba(255, 255, 255, 0.24), 0 0 20px rgba(34, 211, 238, 0.55), 0 0 32px rgba(96, 165, 250, 0.42), 0 0 44px rgba(251, 113, 133, 0.28)",
-          animation: "aurora-line-sweep 9s ease-in-out infinite",
         }}
       />
 
